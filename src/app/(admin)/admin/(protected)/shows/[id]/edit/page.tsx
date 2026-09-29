@@ -5,7 +5,7 @@ import { updateShowAction } from "@/app/(admin)/admin/_actions/shows";
 
 export default async function EditShowPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const show = await prisma.show.findUnique({ where: { id } });
+  const show = await prisma.show.findUnique({ where: { id }, include: { image: true } });
   if (!show) notFound();
 
   const boundAction = updateShowAction.bind(null, id);
@@ -22,13 +22,16 @@ export default async function EditShowPage({ params }: { params: Promise<{ id: s
             time: show.time ?? "",
             city: show.city,
             state: show.state ?? "",
-            country: show.country ?? "Brasil",
+            country: show.country ?? "",
             venue: show.venue,
             address: show.address ?? "",
             ticketUrl: show.ticketUrl ?? "",
             soldOut: show.soldOut,
             featured: show.featured,
             published: show.status === "PUBLISHED",
+            showStatus: show.showStatus,
+            image: show.image ? { id: show.image.id, url: show.image.url } : null,
+            internalNotes: show.internalNotes ?? "",
           }}
           action={boundAction}
         />

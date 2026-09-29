@@ -1,36 +1,49 @@
 import { prisma } from "@/lib/db";
+import { requireSession } from "@/lib/auth/guards";
 import { SINGLETON_ID } from "@/lib/content/singleton";
-import { BookingSettingsForm } from "./BookingSettingsForm";
+import { SYSTEM_DEFAULTS } from "@/lib/content/defaults";
+import { loadSection } from "@/lib/admin/queries";
+import { bookingFieldLabelsSchema } from "@/lib/validations/cms/sections";
+import { AdminPage, Card } from "@/components/admin/ui";
+import { SectionCopyForm } from "@/components/admin/SectionCopyForm";
 import { BookingInbox } from "./BookingInbox";
+import { BookingSectionForm } from "./BookingSectionForm";
 
 export default async function BookingAdminPage() {
-  // TEMPORARY (Phase 3 → 4): legacy single-language screen reads/writes the PT fields.
-  const [settings, section, requests] = await Promise.all([
+  await requireSession();
+  const [section, row, requests] = await Promise.all([
+    loadSection("booking"),
     prisma.bookingSection.findUnique({ where: { id: SINGLETON_ID } }),
-    prisma.section.findUnique({ where: { key: "booking" } }),
     prisma.bookingRequest.findMany({ orderBy: { createdAt: "desc" }, take: 100 }),
   ]);
+  const d = SYSTEM_DEFAULTS.booking;
+  const b = row ?? d;
+  // The stored JSON is parsed, never trusted: invalid → defaults.
+  const labels = bookingFieldLabelsSchema.safeParse(b.fieldLabels);
 
   return (
-    <div className="mx-auto max-w-[1240px] px-6 py-8 lg:px-10">
-      <h1 className="text-2xl font-semibold tracking-tight">Booking</h1>
+    <AdminPage eyebrow="Conteúdo" title="Booking" description="Formulário de contratação e pedidos recebidos.">
+      <Card title="Textos da seção">
+        <SectionCopyForm sectionKey="booking" values={section} />
+      </Card>
 
-      <section className="mt-8">
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-neutral-500">Configurações</h2>
-        <div className="mt-4">
-          <BookingSettingsForm
-            initialValues={{
-              heading: section?.titlePt ?? undefined,
-              intro: section?.descriptionPt ?? undefined,
-              notifyEmail: settings?.notifyEmail ?? "",
-              isFormEnabled: settings?.isFormEnabled,
-            }}
-          />
-        </div>
-      </section>
+      <BookingSectionForm
+        initial={{
+          successTitlePt: b.successTitlePt,
+          successTitleEn: b.successTitleEn,
+          successMessagePt: b.successMessagePt,
+          successMessageEn: b.successMessageEn,
+          submitLabelPt: b.submitLabelPt,
+          submitLabelEn: b.submitLabelEn,
+          pausedMessagePt: b.pausedMessagePt,
+          pausedMessageEn: b.pausedMessageEn,
+          fieldLabels: labels.success ? labels.data : d.fieldLabels,
+          notifyEmail: b.notifyEmail ?? "",
+          isFormEnabled: b.isFormEnabled,
+        }}
+      />
 
-      <section className="mt-12 border-t border-neutral-200 pt-8">
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-neutral-500">Pedidos recebidos</h2>
+      <Card title="Pedidos recebidos">
         <BookingInbox
           initialItems={requests.map((r) => ({
             id: r.id,
@@ -46,7 +59,7 @@ export default async function BookingAdminPage() {
             createdAt: r.createdAt.toISOString(),
           }))}
         />
-      </section>
-    </div>
+      </Card>
+    </AdminPage>
   );
 }

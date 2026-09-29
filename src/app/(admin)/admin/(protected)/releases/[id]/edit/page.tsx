@@ -20,6 +20,7 @@ export default async function EditReleasePage({ params }: { params: Promise<{ id
             spotifyUrl: release.spotifyUrl ?? "",
             appleMusicUrl: release.appleMusicUrl ?? "",
             youtubeUrl: release.youtubeUrl ?? "",
+            soundcloudUrl: release.soundcloudUrl ?? "",
             published: release.status === "PUBLISHED",
             cover: release.cover ? { id: release.cover.id, url: release.cover.url } : null,
           }}

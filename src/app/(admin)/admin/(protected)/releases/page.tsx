@@ -1,56 +1,46 @@
 import Link from "next/link";
-import Image from "next/image";
 import { prisma } from "@/lib/db";
-import { StatusBadge } from "@/components/admin/fields";
-import { DeleteButton } from "@/components/admin/DeleteButton";
-import { deleteReleaseAction } from "@/app/(admin)/admin/_actions/releases";
+import { requireSession } from "@/lib/auth/guards";
+import { loadSection } from "@/lib/admin/queries";
+import { AdminPage, Card, EmptyState, Notice, PrimaryLink } from "@/components/admin/ui";
+import { SectionCopyForm } from "@/components/admin/SectionCopyForm";
+import { CollectionList, type CollectionRow } from "@/components/admin/CollectionList";
+import { deleteReleaseAction, reorderReleasesAction } from "@/app/(admin)/admin/_actions/releases";
 
 export default async function ReleasesPage() {
-  const releases = await prisma.release.findMany({ orderBy: { sortOrder: "asc" }, include: { cover: true } });
+  await requireSession();
+  const [section, releases] = await Promise.all([
+    loadSection("music"),
+    prisma.release.findMany({ orderBy: { sortOrder: "asc" }, include: { cover: true } }),
+  ]);
+  const rows: CollectionRow[] = releases.map((r) => ({
+    id: r.id,
+    title: r.title,
+    meta: `${r.yearLabel} · ${r.type}`,
+    imageUrl: r.cover?.url ?? null,
+    status: r.status,
+    editHref: `/admin/releases/${r.id}/edit`,
+  }));
 
   return (
-    <div className="mx-auto max-w-[1240px] px-6 py-8 lg:px-10">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold tracking-tight">Música</h1>
-        <Link href="/admin/releases/new" className="rounded-md bg-neutral-900 px-4 py-2 text-sm font-medium text-white">
-          + Novo lançamento
+    <AdminPage eyebrow="Conteúdo" title="Música" actions={<PrimaryLink href="/admin/releases/new">+ Novo lançamento</PrimaryLink>}>
+      <Card title="Textos da seção">
+        <SectionCopyForm sectionKey="music" values={section} />
+      </Card>
+      <Notice>
+        Os botões de streaming da seção vêm das redes marcadas como “Música” em{" "}
+        <Link href="/admin/social" className="underline">
+          Redes sociais
         </Link>
-      </div>
-
-      {releases.length === 0 ? (
-        <p className="mt-8 text-sm text-neutral-500">
-          Nenhum lançamento publicado. Quando adicionado, ele aparece aqui e no site.
-        </p>
-      ) : (
-        <ul className="mt-6 divide-y divide-neutral-200">
-          {releases.map((release) => (
-            <li key={release.id} className="flex items-center justify-between gap-4 py-4">
-              <div className="flex items-center gap-3">
-                {release.cover && (
-                  <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded">
-                    <Image src={release.cover.url} alt="" fill sizes="48px" className="object-cover" unoptimized />
-                  </div>
-                )}
-                <div>
-                  <p className="text-sm font-medium">
-                    {release.title} <span className="text-neutral-400">· {release.yearLabel}</span>
-                  </p>
-                  <div className="mt-1 flex items-center gap-2">
-                    <StatusBadge status={release.status} />
-                    <span className="text-xs text-neutral-500">{release.type}</span>
-                  </div>
-                </div>
-              </div>
-              <div className="flex items-center gap-4">
-                <Link href={`/admin/releases/${release.id}/edit`} className="text-xs font-medium text-neutral-700">
-                  Editar
-                </Link>
-                <DeleteButton action={deleteReleaseAction.bind(null, release.id)} confirmMessage={`Excluir "${release.title}"?`} />
-              </div>
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
+        .
+      </Notice>
+      <Card title="Lançamentos">
+        {rows.length === 0 ? (
+          <EmptyState>Nenhum lançamento. O site mostra o texto “sem lançamentos” da seção.</EmptyState>
+        ) : (
+          <CollectionList label="Lançamentos" rows={rows} reorder={reorderReleasesAction} remove={deleteReleaseAction} />
+        )}
+      </Card>
+    </AdminPage>
   );
 }

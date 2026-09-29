@@ -1,33 +1,38 @@
 import { prisma } from "@/lib/db";
+import { requirePageRole, SETTINGS_ROLES } from "@/lib/auth/guards";
 import { SINGLETON_ID } from "@/lib/content/singleton";
 import { SYSTEM_DEFAULTS } from "@/lib/content/defaults";
+import { getEnvSiteUrl, normalizeSiteUrl } from "@/lib/siteUrl";
+import { mediaValue } from "@/lib/admin/queries";
+import { AdminPage } from "@/components/admin/ui";
 import { SeoForm } from "./SeoForm";
 
-import { siteUrl } from "@/lib/siteUrl";
-
 export default async function SeoAdminPage() {
-  const [seo, brand] = await Promise.all([
-    // TEMPORARY (Phase 3 → 4): PT fields; brand identity from BrandSettings.
+  await requirePageRole(SETTINGS_ROLES);
+  const [seo, brand, site] = await Promise.all([
     prisma.seoSettings.findUnique({ where: { id: SINGLETON_ID }, include: { ogImage: true } }),
     prisma.brandSettings.findUnique({ where: { id: SINGLETON_ID } }),
+    prisma.siteSettings.findUnique({ where: { id: SINGLETON_ID } }),
   ]);
+  const b = brand ?? SYSTEM_DEFAULTS.brand;
 
   return (
-    <div className="mx-auto max-w-[1240px] px-6 py-8 lg:px-10">
-      <h1 className="text-2xl font-semibold tracking-tight">SEO</h1>
-      <div className="mt-6">
-        <SeoForm
-          initialValues={{
-            metaTitle: seo?.metaTitlePt || (brand ? `${brand.brandName} — ${brand.taglinePt}` : ""),
-            metaDescription: seo?.metaDescriptionPt || brand?.descriptionPt || "",
-            twitterHandle: seo?.twitterHandle ?? "",
-            robotsIndex: seo?.robotsIndex,
-            ogImage: seo?.ogImage ? { id: seo.ogImage.id, url: seo.ogImage.url } : null,
-            artistName: brand?.brandName ?? SYSTEM_DEFAULTS.brand.brandName,
-            siteUrl,
-          }}
-        />
-      </div>
-    </div>
+    <AdminPage eyebrow="Configurações" title="SEO" description="Título, descrição e imagem usados pelo Google e ao compartilhar o link do site.">
+      <SeoForm
+        initialValues={{
+          metaTitlePt: seo?.metaTitlePt ?? "",
+          metaTitleEn: seo?.metaTitleEn ?? "",
+          metaDescriptionPt: seo?.metaDescriptionPt ?? "",
+          metaDescriptionEn: seo?.metaDescriptionEn ?? "",
+          twitterHandle: seo?.twitterHandle ?? "",
+          robotsIndex: seo?.robotsIndex ?? true,
+          ogImage: mediaValue(seo?.ogImage),
+          // Same fallbacks as the site's getSeo().
+          fallbackTitle: `${b.brandName} — ${b.taglinePt}`,
+          fallbackDescription: b.descriptionPt,
+          siteUrl: normalizeSiteUrl(site?.siteUrl) ?? getEnvSiteUrl(),
+        }}
+      />
+    </AdminPage>
   );
 }

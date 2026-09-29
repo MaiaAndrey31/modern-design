@@ -13,6 +13,7 @@ export interface ReleaseFormValues {
   spotifyUrl?: string;
   appleMusicUrl?: string;
   youtubeUrl?: string;
+  soundcloudUrl?: string;
   published?: boolean;
   cover?: MediaValue | null;
 }
@@ -31,6 +32,7 @@ export function ReleaseForm({
     <form action={formAction} className="max-w-xl space-y-6">
       <MediaPickerField label="Capa" folder="music" aspect="aspect-square" value={cover} onChange={setCover} required />
       <input type="hidden" name="coverId" value={cover?.id ?? ""} />
+      {state.fieldErrors?.coverId?.[0] && <p className="-mt-4 text-xs text-red-600">{state.fieldErrors.coverId[0]}</p>}
 
       <TextField label="Título" name="title" required defaultValue={initialValues.title} error={state.fieldErrors?.title?.[0]} />
 
@@ -47,6 +49,7 @@ export function ReleaseForm({
       <TextField label="Link do Spotify (opcional)" name="spotifyUrl" type="url" defaultValue={initialValues.spotifyUrl} error={state.fieldErrors?.spotifyUrl?.[0]} />
       <TextField label="Link do Apple Music (opcional)" name="appleMusicUrl" type="url" defaultValue={initialValues.appleMusicUrl} error={state.fieldErrors?.appleMusicUrl?.[0]} />
       <TextField label="Link do YouTube (opcional)" name="youtubeUrl" type="url" defaultValue={initialValues.youtubeUrl} error={state.fieldErrors?.youtubeUrl?.[0]} />
+      <TextField label="Link do SoundCloud (opcional)" name="soundcloudUrl" type="url" defaultValue={initialValues.soundcloudUrl} error={state.fieldErrors?.soundcloudUrl?.[0]} />
 
       <ToggleField label="Publicar imediatamente" name="published" defaultChecked={initialValues.published ?? true} />
 

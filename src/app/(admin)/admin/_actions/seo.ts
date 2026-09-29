@@ -1,49 +1,38 @@
 "use server";
 
-import { updateTag, revalidatePath } from "next/cache";
-import { requireRole } from "@/lib/auth/guards";
 import { prisma } from "@/lib/db";
+import { SETTINGS_ROLES, requireRole } from "@/lib/auth/guards";
+import { audit } from "@/lib/admin/audit";
+import { invalidate } from "@/lib/admin/invalidate";
+import { bool, text } from "@/lib/admin/formData";
+import { failed, invalid, saved } from "@/lib/admin/result";
 import { CACHE_TAGS } from "@/lib/content/tags";
 import { SINGLETON_ID } from "@/lib/content/singleton";
-import { seoSettingsSchema } from "@/lib/validations/admin/seo";
+import { seoSettingsSchema } from "@/lib/validations/cms/settings";
 import type { ActionState } from "@/lib/validations/admin/actionState";
 
 export async function updateSeoSettingsAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
-  await requireRole(["ADMIN", "EDITOR"]);
-
+  const user = await requireRole(SETTINGS_ROLES);
   const parsed = seoSettingsSchema.safeParse({
-    metaTitle: formData.get("metaTitle") ?? "",
-    metaDescription: formData.get("metaDescription") ?? "",
-    twitterHandle: formData.get("twitterHandle") ?? "",
-    robotsIndex: formData.get("robotsIndex") === "on",
-    ogImageId: formData.get("ogImageId") ?? "",
+    metaTitlePt: text(formData, "metaTitlePt"),
+    metaTitleEn: text(formData, "metaTitleEn"),
+    metaDescriptionPt: text(formData, "metaDescriptionPt"),
+    metaDescriptionEn: text(formData, "metaDescriptionEn"),
+    ogImageId: text(formData, "ogImageId"),
+    twitterHandle: text(formData, "twitterHandle"),
+    robotsIndex: bool(formData, "robotsIndex"),
   });
-  if (!parsed.success) return { ok: false, fieldErrors: parsed.error.flatten().fieldErrors };
+  if (!parsed.success) return invalid(parsed.error);
   const data = parsed.data;
 
-  const twitterHandle = data.twitterHandle ? (data.twitterHandle.startsWith("@") ? data.twitterHandle : `@${data.twitterHandle}`) : null;
+  if (data.ogImageId) {
+    const media = await prisma.media.findUnique({ where: { id: data.ogImageId }, select: { kind: true } });
+    if (media?.kind !== "IMAGE") return failed("Escolha uma imagem válida para o compartilhamento.");
+  }
 
-  // TEMPORARY (Phase 3 → 4): legacy single-language form → PT fields.
-  await prisma.seoSettings.upsert({
-    where: { id: SINGLETON_ID },
-    create: {
-      id: SINGLETON_ID,
-      metaTitlePt: data.metaTitle,
-      metaDescriptionPt: data.metaDescription,
-      twitterHandle,
-      robotsIndex: data.robotsIndex ?? true,
-      ogImageId: data.ogImageId || null,
-    },
-    update: {
-      metaTitlePt: data.metaTitle,
-      metaDescriptionPt: data.metaDescription,
-      twitterHandle,
-      robotsIndex: data.robotsIndex ?? true,
-      ogImageId: data.ogImageId || null,
-    },
-  });
+  await prisma.seoSettings.upsert({ where: { id: SINGLETON_ID }, create: { id: SINGLETON_ID, ...data }, update: data });
 
-  updateTag(CACHE_TAGS.seo);
-  revalidatePath("/");
-  return { ok: true };
+  await audit({ userId: user.id, action: "update", entity: "SeoSettings", entityId: SINGLETON_ID, summary: "SEO", diff: data });
+  invalidate(CACHE_TAGS.seo);
+  return saved();
 }

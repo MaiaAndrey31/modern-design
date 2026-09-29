@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createHash } from "node:crypto";
 import { bookingSchema } from "@/lib/validations/booking";
 import { prisma } from "@/lib/db";
+import { SINGLETON_ID } from "@/lib/content/singleton";
 
 const RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000;
 const RATE_LIMIT_MAX_REQUESTS = 5;
@@ -19,7 +20,7 @@ function hashIp(ip: string) {
  *
  * Example of what to add once a provider is chosen:
  *   await resend.emails.send({
- *     from: "booking@alansaher.com",
+ *     from: "booking@your-domain.com",
  *     to: process.env.BOOKING_NOTIFY_EMAIL,
  *     subject: `New booking request — ${data.city}`,
  *     text: JSON.stringify(data, null, 2),
@@ -33,6 +34,13 @@ export async function POST(request: Request) {
   // fall for it). Silently accept without persisting — never tip off a bot.
   if (body && typeof body === "object" && "company_website" in body && body.company_website) {
     return NextResponse.json({ ok: true });
+  }
+
+  // The admin can pause the form (Booking → "Receber pedidos pelo site"):
+  // enforced here too, not only by hiding the form in the UI.
+  const settings = await prisma.bookingSection.findUnique({ where: { id: SINGLETON_ID }, select: { isFormEnabled: true } });
+  if (settings && !settings.isFormEnabled) {
+    return NextResponse.json({ ok: false, errors: { _form: ["Booking requests are paused."] } }, { status: 403 });
   }
 
   const result = bookingSchema.safeParse(body);

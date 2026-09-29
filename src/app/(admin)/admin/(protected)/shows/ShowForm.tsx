@@ -2,7 +2,9 @@
 
 import { useActionState } from "react";
 import Link from "next/link";
-import { TextField, ToggleField, SaveButton } from "@/components/admin/fields";
+import { SelectField, TextAreaField, TextField, ToggleField, SaveButton } from "@/components/admin/fields";
+import { MediaField } from "@/components/admin/form";
+import type { MediaValue } from "@/components/admin/MediaPickerField";
 import type { ActionState } from "@/lib/validations/admin/actionState";
 
 export interface ShowFormValues {
@@ -19,6 +21,9 @@ export interface ShowFormValues {
   soldOut?: boolean;
   featured?: boolean;
   published?: boolean;
+  showStatus?: "SCHEDULED" | "CANCELLED" | "POSTPONED" | "RESCHEDULED";
+  image?: MediaValue | null;
+  internalNotes?: string;
 }
 
 export function ShowForm({
@@ -32,7 +37,7 @@ export function ShowForm({
 
   return (
     <form action={formAction} className="max-w-xl space-y-6">
-      <TextField label="Título (opcional)" name="title" defaultValue={initialValues.title} placeholder="Ex.: Réveillon Alfenas" />
+      <TextField label="Título (opcional)" name="title" defaultValue={initialValues.title} placeholder="Ex.: Festival de Verão" />
 
       <div className="grid grid-cols-2 gap-4">
         <TextField
@@ -52,7 +57,7 @@ export function ShowForm({
       </div>
 
       <div className="grid grid-cols-2 gap-4">
-        <TextField label="País" name="country" defaultValue={initialValues.country ?? "Brasil"} />
+        <TextField label="País" name="country" defaultValue={initialValues.country} />
         <TextField label="Local" name="venue" required defaultValue={initialValues.venue} error={state.fieldErrors?.venue?.[0]} />
       </div>
 
@@ -66,8 +71,16 @@ export function ShowForm({
         error={state.fieldErrors?.ticketUrl?.[0]}
       />
 
+      <SelectField label="Situação" name="showStatus" defaultValue={initialValues.showStatus ?? "SCHEDULED"} error={state.fieldErrors?.showStatus?.[0]}>
+        <option value="SCHEDULED">Confirmado</option>
+        <option value="POSTPONED">Adiado</option>
+        <option value="RESCHEDULED">Remarcado</option>
+        <option value="CANCELLED">Cancelado (não aparece no site)</option>
+      </SelectField>
+      <MediaField label="Imagem (opcional)" name="imageId" category="shows" initial={initialValues.image ?? null} error={state.fieldErrors?.imageId?.[0]} />
       <ToggleField label="Esgotado" name="soldOut" defaultChecked={initialValues.soldOut} />
       <ToggleField label="Destaque" name="featured" defaultChecked={initialValues.featured} />
+      <TextAreaField label="Notas internas (não aparecem no site)" name="internalNotes" rows={3} defaultValue={initialValues.internalNotes} />
       <ToggleField
         label="Publicar imediatamente"
         name="published"

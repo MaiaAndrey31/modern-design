@@ -5,7 +5,7 @@ import { updatePressItemAction } from "@/app/(admin)/admin/_actions/press";
 
 export default async function EditPressPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const item = await prisma.pressItem.findUnique({ where: { id } });
+  const item = await prisma.pressItem.findUnique({ where: { id }, include: { logo: true } });
   if (!item) notFound();
 
   return (
@@ -18,7 +18,10 @@ export default async function EditPressPage({ params }: { params: Promise<{ id: 
             title: item.title,
             dateLabel: item.dateLabel,
             url: item.url ?? "",
-            excerpt: item.excerptPt ?? "", // TEMPORARY (Phase 3 → 4): PT field
+            excerptPt: item.excerptPt,
+            excerptEn: item.excerptEn,
+            publishedAt: item.publishedAt ? item.publishedAt.toISOString().slice(0, 10) : "",
+            logo: item.logo ? { id: item.logo.id, url: item.logo.url } : null,
             published: item.status === "PUBLISHED",
           }}
           action={updatePressItemAction.bind(null, id)}

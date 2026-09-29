@@ -2,116 +2,181 @@
 
 import { useState } from "react";
 import Image from "next/image";
-import { TextField, ToggleField, SaveButton } from "@/components/admin/fields";
-import { MediaPickerField, type MediaValue } from "@/components/admin/MediaPickerField";
+import { TextField, ToggleField, inputClass } from "@/components/admin/fields";
+import { FormFooter, MediaField } from "@/components/admin/form";
+import { Card } from "@/components/admin/ui";
+import type { MediaValue } from "@/components/admin/MediaPickerField";
 import { useSavedFeedback } from "@/components/admin/useSavedFeedback";
 import { updateSeoSettingsAction } from "@/app/(admin)/admin/_actions/seo";
 
 export interface SeoFormValues {
-  metaTitle?: string;
-  metaDescription?: string;
-  twitterHandle?: string;
-  robotsIndex?: boolean;
-  ogImage?: MediaValue | null;
-  artistName: string;
+  metaTitlePt: string;
+  metaTitleEn: string;
+  metaDescriptionPt: string;
+  metaDescriptionEn: string;
+  twitterHandle: string;
+  robotsIndex: boolean;
+  ogImage: MediaValue | null;
+  /** Shown when the title/description are left empty. */
+  fallbackTitle: string;
+  fallbackDescription: string;
   siteUrl: string;
 }
 
 function CharCounter({ value, target, max }: { value: string; target: number; max: number }) {
   const len = value.length;
   const color = len <= target ? "text-green-600" : len <= max ? "text-amber-600" : "text-red-600";
+  return <span className={`text-xs tabular-nums ${color}`}>{len}/{max}</span>;
+}
+
+/** PT/EN pair with live counters (SEO lengths matter more than elsewhere). */
+function CountedPair({
+  label,
+  name,
+  values,
+  onChange,
+  target,
+  max,
+  multiline,
+  fallback,
+  errors,
+}: {
+  label: string;
+  name: string;
+  values: { pt: string; en: string };
+  onChange: (v: { pt: string; en: string }) => void;
+  target: number;
+  max: number;
+  multiline?: boolean;
+  fallback: string;
+  errors: { pt?: string; en?: string };
+}) {
+  const Control = multiline ? "textarea" : "input";
   return (
-    <span className={`text-xs ${color}`}>
-      {len}/{max}
-    </span>
+    <fieldset>
+      <legend className="block text-sm font-medium text-neutral-700">{label}</legend>
+      <div className="mt-2 grid gap-3 md:grid-cols-2">
+        {(["pt", "en"] as const).map((lang) => (
+          <div key={lang}>
+            <div className="flex items-center justify-between">
+              <label htmlFor={`${name}-${lang}`} className="text-[11px] font-medium uppercase tracking-wider text-neutral-400">
+                {lang === "pt" ? "Português" : "English"}
+              </label>
+              <CharCounter value={values[lang]} target={target} max={max} />
+            </div>
+            <Control
+              id={`${name}-${lang}`}
+              name={`${name}${lang === "pt" ? "Pt" : "En"}`}
+              value={values[lang]}
+              onChange={(e) => onChange({ ...values, [lang]: e.target.value })}
+              maxLength={max}
+              className={inputClass}
+              {...(multiline ? { rows: 4 } : {})}
+            />
+            {errors[lang] ? (
+              <p className="mt-1 text-xs text-red-600">{errors[lang]}</p>
+            ) : (
+              !values[lang].trim() && (
+                <p className="mt-1 text-xs text-neutral-500">
+                  {lang === "en" && values.pt.trim() ? "Usará o conteúdo em Português." : `Vazio = “${fallback.slice(0, 60)}${fallback.length > 60 ? "…" : ""}”`}
+                </p>
+              )
+            )}
+          </div>
+        ))}
+      </div>
+    </fieldset>
   );
 }
 
-export function SeoForm({ initialValues }: { initialValues: SeoFormValues }) {
+export function SeoForm({ initialValues: v }: { initialValues: SeoFormValues }) {
   const { state, formAction, showSaved } = useSavedFeedback(updateSeoSettingsAction);
-  const [title, setTitle] = useState(initialValues.metaTitle ?? "");
-  const [description, setDescription] = useState(initialValues.metaDescription ?? "");
-  const [ogImage, setOgImage] = useState<MediaValue | null>(initialValues.ogImage ?? null);
+  const [title, setTitle] = useState({ pt: v.metaTitlePt, en: v.metaTitleEn });
+  const [description, setDescription] = useState({ pt: v.metaDescriptionPt, en: v.metaDescriptionEn });
+  const [ogImage, setOgImage] = useState<MediaValue | null>(v.ogImage);
+  const err = (key: string) => state.fieldErrors?.[key]?.[0];
+
+  const previewTitle = title.pt.trim() || v.fallbackTitle;
+  const previewDescription = description.pt.trim() || v.fallbackDescription;
+  const host = v.siteUrl.replace(/^https?:\/\//, "");
 
   return (
-    <div className="grid grid-cols-1 gap-10 lg:grid-cols-2">
-      <form action={formAction} className="space-y-6">
-        <div>
-          <div className="flex items-center justify-between">
-            <label htmlFor="metaTitle" className="block text-sm font-medium text-neutral-700">
-              Título (SEO)
-            </label>
-            <CharCounter value={title} target={60} max={70} />
-          </div>
-          <input
-            id="metaTitle"
+    <div className="grid grid-cols-1 gap-8 xl:grid-cols-[minmax(0,1fr)_minmax(0,420px)]">
+      <form action={formAction} className="space-y-8">
+        <Card title="Busca">
+          <CountedPair
+            label="Título (SEO)"
             name="metaTitle"
-            required
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            className="mt-1.5 w-full rounded-md border border-neutral-300 px-3 py-2 text-[15px] outline-none focus:border-neutral-900"
+            values={title}
+            onChange={setTitle}
+            target={60}
+            max={70}
+            fallback={v.fallbackTitle}
+            errors={{ pt: err("metaTitlePt"), en: err("metaTitleEn") }}
           />
-          {state.fieldErrors?.metaTitle?.[0] && <p className="mt-1 text-xs text-red-600">{state.fieldErrors.metaTitle[0]}</p>}
-        </div>
-
-        <div>
-          <div className="flex items-center justify-between">
-            <label htmlFor="metaDescription" className="block text-sm font-medium text-neutral-700">
-              Meta descrição
-            </label>
-            <CharCounter value={description} target={155} max={200} />
-          </div>
-          <textarea
-            id="metaDescription"
+          <CountedPair
+            label="Meta descrição"
             name="metaDescription"
-            required
-            rows={4}
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            className="mt-1.5 w-full rounded-md border border-neutral-300 px-3 py-2 text-[15px] outline-none focus:border-neutral-900"
+            values={description}
+            onChange={setDescription}
+            target={155}
+            max={200}
+            multiline
+            fallback={v.fallbackDescription}
+            errors={{ pt: err("metaDescriptionPt"), en: err("metaDescriptionEn") }}
           />
-          {state.fieldErrors?.metaDescription?.[0] && <p className="mt-1 text-xs text-red-600">{state.fieldErrors.metaDescription[0]}</p>}
-        </div>
+          <p className="text-xs text-neutral-500">O site é indexado no idioma padrão (Configurações → Site).</p>
+        </Card>
 
-        <MediaPickerField label="Imagem de compartilhamento (opcional)" folder="seo" aspect="aspect-video" value={ogImage} onChange={setOgImage} />
-        <input type="hidden" name="ogImageId" value={ogImage?.id ?? ""} />
-        <p className="text-xs text-neutral-500">Se não definida, uma imagem é gerada automaticamente a partir da Identidade.</p>
+        <Card title="Compartilhamento">
+          <MediaField
+            label="Imagem de compartilhamento (opcional)"
+            name="ogImageId"
+            category="seo"
+            aspect="aspect-video"
+            initial={v.ogImage}
+            onChange={setOgImage}
+            hint="1200×630 recomendado. Sem imagem, uma é gerada automaticamente com a marca."
+            error={err("ogImageId")}
+          />
+          <TextField label="Twitter/X (opcional)" name="twitterHandle" placeholder="@usuario" defaultValue={v.twitterHandle} error={err("twitterHandle")} />
+        </Card>
 
-        <TextField label="Twitter/X (opcional)" name="twitterHandle" placeholder="@alansaher" defaultValue={initialValues.twitterHandle} />
+        <Card title="Indexação">
+          <ToggleField
+            label="Visível para o Google"
+            name="robotsIndex"
+            defaultChecked={v.robotsIndex}
+            hint="Desativar isso pode fazer o site desaparecer do Google. Só desative se tiver certeza."
+          />
+        </Card>
 
-        <ToggleField
-          label="Visível para o Google"
-          name="robotsIndex"
-          defaultChecked={initialValues.robotsIndex ?? true}
-          hint="Desativar isso pode fazer seu site desaparecer do Google. Só desative se tiver certeza."
-        />
-
-        {state.error && <p className="text-sm text-red-600">{state.error}</p>}
-
-        <div className="flex items-center gap-4">
-          <SaveButton />
-          {showSaved && <span className="text-sm text-green-600">Alterações salvas.</span>}
-        </div>
+        <FormFooter state={state} showSaved={showSaved} />
       </form>
 
-      <div>
-        <p className="text-sm font-medium text-neutral-700">Prévia de busca (Google)</p>
-        <div className="mt-2 rounded-md border border-neutral-200 bg-white p-4">
-          <p className="truncate text-xs text-neutral-500">{initialValues.siteUrl}</p>
-          <p className="truncate text-base text-blue-800">{title || initialValues.artistName}</p>
-          <p className="mt-1 line-clamp-2 text-sm text-neutral-600">{description}</p>
-        </div>
-
-        <p className="mt-6 text-sm font-medium text-neutral-700">Prévia de compartilhamento</p>
-        <div className="mt-2 overflow-hidden rounded-md border border-neutral-200 bg-white">
-          <div className="relative aspect-video bg-neutral-100">
-            {ogImage && <Image src={ogImage.url} alt="" fill sizes="400px" className="object-cover" unoptimized />}
+      <div className="space-y-6 xl:sticky xl:top-6 xl:self-start">
+        <Card title="Prévia de busca (Google)">
+          <div className="rounded-md border border-neutral-200 bg-white p-4">
+            <p className="truncate text-xs text-neutral-500">{v.siteUrl}</p>
+            <p className="truncate text-base text-blue-800">{previewTitle}</p>
+            <p className="mt-1 line-clamp-2 text-sm text-neutral-600">{previewDescription}</p>
           </div>
-          <div className="p-3">
-            <p className="truncate text-xs uppercase text-neutral-400">{initialValues.siteUrl.replace(/^https?:\/\//, "")}</p>
-            <p className="truncate text-sm font-medium">{title || initialValues.artistName}</p>
+        </Card>
+        <Card title="Prévia de compartilhamento">
+          <div className="overflow-hidden rounded-md border border-neutral-200 bg-white">
+            <div className="relative aspect-[1200/630] bg-neutral-100">
+              {ogImage ? (
+                <Image src={ogImage.url} alt="" fill sizes="400px" className="object-cover" unoptimized />
+              ) : (
+                <p className="flex h-full items-center justify-center text-xs text-neutral-400">Imagem gerada automaticamente</p>
+              )}
+            </div>
+            <div className="p-3">
+              <p className="truncate text-xs uppercase text-neutral-400">{host}</p>
+              <p className="truncate text-sm font-medium">{previewTitle}</p>
+            </div>
           </div>
-        </div>
+        </Card>
       </div>
     </div>
   );

@@ -1,27 +1,35 @@
 import { prisma } from "@/lib/db";
+import { requireSession } from "@/lib/auth/guards";
+import { loadSection } from "@/lib/admin/queries";
+import { AdminPage, Card } from "@/components/admin/ui";
+import { SectionCopyForm } from "@/components/admin/SectionCopyForm";
 import { GalleryGrid } from "./GalleryGrid";
 
 export default async function GalleryAdminPage() {
-  const rows = await prisma.galleryItem.findMany({
-    orderBy: { sortOrder: "asc" },
-    include: { media: true },
-  });
+  await requireSession();
+  const [section, rows] = await Promise.all([
+    loadSection("gallery"),
+    prisma.galleryItem.findMany({ orderBy: { sortOrder: "asc" }, include: { media: true } }),
+  ]);
 
   const items = rows.map((row) => ({
     id: row.id,
     url: row.media.url,
-    alt: row.altPt, // TEMPORARY (Phase 3 → 4): PT fields
+    alt: row.altPt,
+    altEn: row.altEn,
     caption: row.captionPt,
+    captionEn: row.captionEn,
     status: row.status,
   }));
 
   return (
-    <div className="mx-auto max-w-[1240px] px-6 py-8 lg:px-10">
-      <h1 className="text-2xl font-semibold tracking-tight">Galeria</h1>
-      <p className="mt-1 text-sm text-neutral-500">Arraste para reordenar. A ordem reflete automaticamente no site.</p>
-      <div className="mt-6">
+    <AdminPage eyebrow="Conteúdo" title="Galeria" description="Arraste para reordenar. A ordem reflete automaticamente no site. Sem fotos publicadas, a seção não aparece.">
+      <Card title="Textos da seção">
+        <SectionCopyForm sectionKey="gallery" values={section} />
+      </Card>
+      <Card title="Fotos">
         <GalleryGrid initialItems={items} />
-      </div>
-    </div>
+      </Card>
+    </AdminPage>
   );
 }

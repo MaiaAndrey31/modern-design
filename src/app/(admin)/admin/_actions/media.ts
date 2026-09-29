@@ -4,6 +4,7 @@ import { fileTypeFromBuffer } from "file-type";
 import { updateTag, revalidatePath } from "next/cache";
 import { requireRole } from "@/lib/auth/guards";
 import { prisma } from "@/lib/db";
+import { audit } from "@/lib/admin/audit";
 import { storage } from "@/lib/storage";
 import { CACHE_TAGS } from "@/lib/content/tags";
 import { getMediaUsage } from "@/lib/content/media";
@@ -90,7 +91,7 @@ export async function updateMediaMeta(id: string, input: unknown): Promise<{ ok:
 }
 
 export async function deleteMedia(id: string): Promise<{ ok: boolean; error?: string; usedIn?: string[] }> {
-  await requireRole(["ADMIN", "EDITOR"]);
+  const user = await requireRole(["ADMIN", "EDITOR"]);
 
   const usage = await getMediaUsage(id);
   if (usage.inUseCount > 0) {
@@ -102,6 +103,7 @@ export async function deleteMedia(id: string): Promise<{ ok: boolean; error?: st
 
   await prisma.media.delete({ where: { id } });
   await storage.delete([media.path]);
+  await audit({ userId: user.id, action: "delete", entity: "Media", entityId: id, summary: `Arquivo excluído: ${media.path}` });
 
   updateTag(CACHE_TAGS.media);
   return { ok: true };

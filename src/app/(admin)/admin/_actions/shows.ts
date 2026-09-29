@@ -1,76 +1,68 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { updateTag, revalidatePath } from "next/cache";
-import { requireRole } from "@/lib/auth/guards";
 import { prisma } from "@/lib/db";
+import { CONTENT_ROLES, requireRole } from "@/lib/auth/guards";
+import { audit } from "@/lib/admin/audit";
+import { invalidate } from "@/lib/admin/invalidate";
+import { findInvalidMedia } from "@/lib/admin/media";
+import { bool, text } from "@/lib/admin/formData";
+import { failed, invalid, saved } from "@/lib/admin/result";
 import { CACHE_TAGS } from "@/lib/content/tags";
-import { showSchema } from "@/lib/validations/admin/show";
+import { showSchema } from "@/lib/validations/cms/collections";
 import type { ActionState } from "@/lib/validations/admin/actionState";
 
-function parseFormData(formData: FormData) {
-  return {
-    title: formData.get("title") ?? "",
-    date: formData.get("date") ?? "",
-    time: formData.get("time") ?? "",
-    city: formData.get("city") ?? "",
-    state: formData.get("state") ?? "",
-    country: formData.get("country") ?? "",
-    venue: formData.get("venue") ?? "",
-    address: formData.get("address") ?? "",
-    ticketUrl: formData.get("ticketUrl") ?? "",
-    soldOut: formData.get("soldOut") === "on",
-    featured: formData.get("featured") === "on",
-    published: formData.get("published") === "on",
-    imageId: formData.get("imageId") ?? "",
-  };
-}
+async function saveShow(id: string | null, formData: FormData): Promise<ActionState> {
+  const user = await requireRole(CONTENT_ROLES);
+  if (id && !(await prisma.show.findUnique({ where: { id }, select: { id: true } }))) return failed("Show não encontrado.");
 
-async function upsertShow(id: string | null, formData: FormData): Promise<ActionState> {
-  await requireRole(["ADMIN", "EDITOR"]);
-
-  const parsed = showSchema.safeParse(parseFormData(formData));
-  if (!parsed.success) return { ok: false, fieldErrors: parsed.error.flatten().fieldErrors };
-  const data = parsed.data;
-
-  const payload = {
-    title: data.title || null,
-    date: new Date(`${data.date}T00:00:00Z`),
-    time: data.time || null,
-    city: data.city,
-    state: data.state || null,
-    country: data.country || "Brasil",
-    venue: data.venue,
-    address: data.address || null,
-    ticketUrl: data.ticketUrl || null,
-    soldOut: data.soldOut ?? false,
-    featured: data.featured ?? false,
-    imageId: data.imageId || null,
-    status: (data.published ? "PUBLISHED" : "DRAFT") as "PUBLISHED" | "DRAFT",
-  };
-
-  if (id) {
-    await prisma.show.update({ where: { id }, data: payload });
-  } else {
-    await prisma.show.create({ data: payload });
+  const parsed = showSchema.safeParse({
+    title: text(formData, "title"),
+    date: text(formData, "date"),
+    time: text(formData, "time"),
+    city: text(formData, "city"),
+    state: text(formData, "state"),
+    country: text(formData, "country"),
+    venue: text(formData, "venue"),
+    address: text(formData, "address"),
+    ticketUrl: text(formData, "ticketUrl"),
+    soldOut: bool(formData, "soldOut"),
+    featured: bool(formData, "featured"),
+    showStatus: text(formData, "showStatus") || "SCHEDULED",
+    imageId: text(formData, "imageId"),
+    internalNotes: text(formData, "internalNotes"),
+    status: bool(formData, "published") ? "PUBLISHED" : "DRAFT",
+  });
+  if (!parsed.success) return invalid(parsed.error);
+  if (await findInvalidMedia({ imageId: { id: parsed.data.imageId, kind: "IMAGE" } })) {
+    return { ok: false, error: "Escolha uma imagem válida.", fieldErrors: { imageId: ["Imagem inválida."] } };
   }
 
-  updateTag(CACHE_TAGS.shows);
-  revalidatePath("/");
+  const data = { ...parsed.data, date: new Date(`${parsed.data.date}T00:00:00Z`) };
+  const row = id ? await prisma.show.update({ where: { id }, data }) : await prisma.show.create({ data });
+
+  // internalNotes are admin-only — not copied into the audit trail.
+  const { internalNotes: _notes, ...auditable } = parsed.data;
+  void _notes;
+  await audit({ userId: user.id, action: id ? "update" : "create", entity: "Show", entityId: row.id, summary: `Show: ${row.city} — ${parsed.data.date}`, diff: auditable });
+  invalidate(CACHE_TAGS.shows);
   redirect("/admin/shows");
 }
 
 export async function createShowAction(_prev: ActionState, formData: FormData) {
-  return upsertShow(null, formData);
+  return saveShow(null, formData);
 }
 
 export async function updateShowAction(id: string, _prev: ActionState, formData: FormData) {
-  return upsertShow(id, formData);
+  return saveShow(id, formData);
 }
 
-export async function deleteShowAction(id: string) {
-  await requireRole(["ADMIN", "EDITOR"]);
+export async function deleteShowAction(id: string): Promise<ActionState> {
+  const user = await requireRole(CONTENT_ROLES);
+  const row = await prisma.show.findUnique({ where: { id }, select: { city: true } });
+  if (!row) return saved();
   await prisma.show.delete({ where: { id } });
-  updateTag(CACHE_TAGS.shows);
-  revalidatePath("/");
+  await audit({ userId: user.id, action: "delete", entity: "Show", entityId: id, summary: `Show excluído: ${row.city}` });
+  invalidate(CACHE_TAGS.shows);
+  return saved();
 }

@@ -3,7 +3,7 @@
 import { useFormStatus } from "react-dom";
 import type { InputHTMLAttributes, TextareaHTMLAttributes, SelectHTMLAttributes, ReactNode } from "react";
 
-const inputClass =
+export const inputClass =
   "mt-1.5 w-full rounded-md border border-neutral-300 px-3 py-2 text-[15px] outline-none focus:border-neutral-900 focus:ring-1 focus:ring-neutral-900";
 
 export function TextField({

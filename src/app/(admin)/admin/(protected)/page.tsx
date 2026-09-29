@@ -1,6 +1,10 @@
 import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { formatDateOnly } from "@/lib/formatDate";
+import { requireSession } from "@/lib/auth/guards";
+import { SINGLETON_ID } from "@/lib/content/singleton";
+import { SYSTEM_DEFAULTS } from "@/lib/content/defaults";
+import { Notice } from "@/components/admin/ui";
 
 function startOfTodayUTC() {
   const now = new Date();
@@ -8,7 +12,7 @@ function startOfTodayUTC() {
 }
 
 async function getDashboardData() {
-  const [showsCount, releasesCount, galleryCount, pressCount, nextShow, recentMedia] = await Promise.all([
+  const [showsCount, releasesCount, galleryCount, pressCount, nextShow, recentMedia, brand, activity] = await Promise.all([
     prisma.show.count({ where: { status: "PUBLISHED", date: { gte: startOfTodayUTC() } } }),
     prisma.release.count({ where: { status: "PUBLISHED" } }),
     prisma.galleryItem.count({ where: { status: "PUBLISHED" } }),
@@ -18,9 +22,11 @@ async function getDashboardData() {
       orderBy: { date: "asc" },
     }),
     prisma.media.count(),
+    prisma.brandSettings.findUnique({ where: { id: SINGLETON_ID }, select: { brandName: true } }),
+    prisma.auditLog.findMany({ orderBy: { createdAt: "desc" }, take: 8, include: { user: { select: { name: true, email: true } } } }),
   ]);
 
-  return { showsCount, releasesCount, galleryCount, pressCount, nextShow, recentMedia };
+  return { showsCount, releasesCount, galleryCount, pressCount, nextShow, recentMedia, brand, activity };
 }
 
 const QUICK_ACTIONS = [
@@ -30,12 +36,21 @@ const QUICK_ACTIONS = [
   { href: "/admin/press/new", label: "+ Nova matéria" },
 ];
 
-export default async function DashboardPage() {
+export default async function DashboardPage({ searchParams }: { searchParams: Promise<{ denied?: string }> }) {
+  const [session, { denied }] = await Promise.all([requireSession(), searchParams]);
   const data = await getDashboardData();
+  const firstName = session.user.name?.split(" ")[0];
+  const brandName = data.brand?.brandName ?? SYSTEM_DEFAULTS.brand.brandName;
 
   return (
     <div className="mx-auto max-w-[1240px] px-6 py-8 lg:px-10">
-      <h1 className="text-2xl font-semibold tracking-tight">Olá, Alan</h1>
+      <p className="text-[11px] font-medium uppercase tracking-wider text-neutral-400">Modern CMS · {brandName}</p>
+      <h1 className="text-2xl font-semibold tracking-tight">{firstName ? `Olá, ${firstName}` : "Olá"}</h1>
+      {denied && (
+        <div className="mt-4">
+          <Notice tone="warning">Você não tem permissão para acessar aquela área. Fale com um administrador.</Notice>
+        </div>
+      )}
 
       <div className="mt-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
         {QUICK_ACTIONS.map((action) => (
@@ -79,6 +94,24 @@ export default async function DashboardPage() {
           </p>
         ) : (
           <p className="mt-2 text-sm text-neutral-500">Nenhum show confirmado no momento.</p>
+        )}
+      </div>
+
+      <div className="mt-8 rounded-md border border-neutral-200 bg-white p-5">
+        <p className="text-sm font-medium">Atividade recente</p>
+        {data.activity.length === 0 ? (
+          <p className="mt-2 text-sm text-neutral-500">Nenhuma alteração registrada ainda.</p>
+        ) : (
+          <ul className="mt-3 divide-y divide-neutral-100">
+            {data.activity.map((entry) => (
+              <li key={entry.id} className="flex flex-wrap items-baseline justify-between gap-2 py-2 text-sm">
+                <span className="text-neutral-800">{entry.summary ?? `${entry.entity} · ${entry.action}`}</span>
+                <span className="text-xs text-neutral-500">
+                  {entry.user?.name ?? entry.user?.email ?? "Sistema"} · {entry.createdAt.toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })}
+                </span>
+              </li>
+            ))}
+          </ul>
         )}
       </div>
     </div>

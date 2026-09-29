@@ -21,7 +21,9 @@ export interface GalleryAdminItem {
   id: string;
   url: string;
   alt: string;
+  altEn: string | null;
   caption: string | null;
+  captionEn: string | null;
   status: "DRAFT" | "PUBLISHED";
 }
 
@@ -63,6 +65,7 @@ function SortableTile({ item, onEdit }: { item: GalleryAdminItem; onEdit: (item:
 export function GalleryGrid({ initialItems }: { initialItems: GalleryAdminItem[] }) {
   const [items, setItems] = useState(initialItems);
   const [editing, setEditing] = useState<GalleryAdminItem | null>(null);
+  const [editError, setEditError] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -81,8 +84,13 @@ export function GalleryGrid({ initialItems }: { initialItems: GalleryAdminItem[]
     const newIndex = items.findIndex((i) => i.id === over.id);
     const next = arrayMove(items, oldIndex, newIndex);
     setItems(next);
+    const previous = items;
     startTransition(async () => {
-      await reorderGalleryItems(next.map((i) => i.id));
+      const result = await reorderGalleryItems(next.map((i) => i.id));
+      if (!result.ok) {
+        setItems(previous);
+        setUploadError(result.error ?? "Não foi possível salvar a nova ordem.");
+      }
     });
   };
 
@@ -97,7 +105,11 @@ export function GalleryGrid({ initialItems }: { initialItems: GalleryAdminItem[]
         continue;
       }
       const created = await addGalleryItem(result.mediaId, file.name.replace(/\.[^.]+$/, ""));
-      setItems((prev) => [...prev, { id: created.id, url: result.url!, alt: file.name, caption: null, status: "PUBLISHED" }]);
+      if (!created.ok || !created.id) {
+        setUploadError(created.error ?? "Falha ao adicionar à galeria.");
+        continue;
+      }
+      setItems((prev) => [...prev, { id: created.id!, url: result.url!, alt: file.name, altEn: null, caption: null, captionEn: null, status: "PUBLISHED" }]);
     }
     setIsUploading(false);
   };
@@ -141,18 +153,37 @@ export function GalleryGrid({ initialItems }: { initialItems: GalleryAdminItem[]
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 p-4">
           <div className="w-full max-w-sm rounded-lg bg-white p-6 shadow-xl">
             <p className="text-sm font-medium">Editar foto</p>
-            <label className="mt-4 block text-sm font-medium text-neutral-700">Descrição da imagem (alt)</label>
+            <label className="mt-4 block text-sm font-medium text-neutral-700">Descrição da imagem (alt) — Português</label>
             <input
               defaultValue={editing.alt}
+              maxLength={200}
               onChange={(e) => setEditing({ ...editing, alt: e.target.value })}
               className="mt-1.5 w-full rounded-md border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-neutral-900"
             />
-            <label className="mt-4 block text-sm font-medium text-neutral-700">Legenda (opcional)</label>
+            <label className="mt-3 block text-sm font-medium text-neutral-700">English</label>
+            <input
+              defaultValue={editing.altEn ?? ""}
+              maxLength={200}
+              placeholder="Usará o conteúdo em Português."
+              onChange={(e) => setEditing({ ...editing, altEn: e.target.value })}
+              className="mt-1.5 w-full rounded-md border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-neutral-900"
+            />
+            <label className="mt-4 block text-sm font-medium text-neutral-700">Legenda (opcional) — Português</label>
             <input
               defaultValue={editing.caption ?? ""}
+              maxLength={200}
               onChange={(e) => setEditing({ ...editing, caption: e.target.value })}
               className="mt-1.5 w-full rounded-md border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-neutral-900"
             />
+            <label className="mt-3 block text-sm font-medium text-neutral-700">English</label>
+            <input
+              defaultValue={editing.captionEn ?? ""}
+              maxLength={200}
+              placeholder="Usará o conteúdo em Português."
+              onChange={(e) => setEditing({ ...editing, captionEn: e.target.value })}
+              className="mt-1.5 w-full rounded-md border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-neutral-900"
+            />
+            {editError && <p className="mt-3 text-xs text-red-600">{editError}</p>}
             <label className="mt-4 flex items-center gap-2 text-sm">
               <input
                 type="checkbox"
@@ -167,9 +198,12 @@ export function GalleryGrid({ initialItems }: { initialItems: GalleryAdminItem[]
               <DeleteButton
                 confirmMessage="Excluir esta foto da galeria?"
                 action={async () => {
-                  await deleteGalleryItem(editing.id);
-                  setItems((prev) => prev.filter((i) => i.id !== editing.id));
-                  setEditing(null);
+                  const result = await deleteGalleryItem(editing.id);
+                  if (result.ok) {
+                    setItems((prev) => prev.filter((i) => i.id !== editing.id));
+                    setEditing(null);
+                  }
+                  return result;
                 }}
               />
               <div className="flex gap-3">
@@ -178,7 +212,18 @@ export function GalleryGrid({ initialItems }: { initialItems: GalleryAdminItem[]
                 </button>
                 <button
                   onClick={async () => {
-                    await updateGalleryItem(editing.id, { alt: editing.alt, caption: editing.caption ?? undefined, status: editing.status });
+                    const result = await updateGalleryItem(editing.id, {
+                      altPt: editing.alt,
+                      altEn: editing.altEn ?? "",
+                      captionPt: editing.caption ?? "",
+                      captionEn: editing.captionEn ?? "",
+                      status: editing.status,
+                    });
+                    if (!result.ok) {
+                      setEditError(Object.values(result.fieldErrors ?? {})[0]?.[0] ?? result.error ?? "Não foi possível salvar.");
+                      return;
+                    }
+                    setEditError(null);
                     setItems((prev) => prev.map((i) => (i.id === editing.id ? editing : i)));
                     setEditing(null);
                   }}

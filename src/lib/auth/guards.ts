@@ -2,7 +2,7 @@ import "server-only";
 import { redirect } from "next/navigation";
 import { auth } from "./index";
 
-type Role = "ADMIN" | "EDITOR";
+export type Role = "ADMIN" | "EDITOR";
 
 /** For Server Components/layouts: redirects to /admin/login when there's no session. */
 export async function requireSession() {
@@ -24,4 +24,19 @@ export async function requireRole(roles: Role[]) {
     throw new Error("Unauthorized");
   }
   return session.user;
+}
+
+/** Editorial content (texts, collections, media). */
+export const CONTENT_ROLES: Role[] = ["ADMIN", "EDITOR"];
+/** Site identity & structure (brand, theme, typography, site/SEO settings, header/footer/menus, section order). */
+export const SETTINGS_ROLES: Role[] = ["ADMIN"];
+
+/**
+ * For admin pages restricted to some roles: no session → login; wrong role →
+ * back to the dashboard with a notice (actions re-check with requireRole).
+ */
+export async function requirePageRole(roles: Role[]) {
+  const session = await requireSession();
+  if (!roles.includes(session.user.role)) redirect("/admin?denied=1");
+  return session;
 }

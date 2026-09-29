@@ -35,6 +35,22 @@ export const sectionSchema = z
   });
 export type SectionInput = z.infer<typeof sectionSchema>;
 
+/** Generic copy only (visibility and order are edited on the Sections screen). */
+export const sectionCopySchema = z.object({
+  eyebrowPt: optionalText(80),
+  eyebrowEn: optionalText(80),
+  titlePt: optionalText(200),
+  titleEn: optionalText(200),
+  subtitlePt: optionalText(200),
+  subtitleEn: optionalText(200),
+  descriptionPt: optionalText(1000),
+  descriptionEn: optionalText(1000),
+  emptyTextPt: optionalText(400),
+  emptyTextEn: optionalText(400),
+  cta: optionalLink,
+});
+export type SectionCopyInput = z.infer<typeof sectionCopySchema>;
+
 /**
  * New order for the flow sections (everything but "first" sections). Must be
  * a permutation of exactly those keys — no duplicates, none missing.

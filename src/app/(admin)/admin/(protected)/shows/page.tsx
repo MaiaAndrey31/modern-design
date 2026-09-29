@@ -4,6 +4,10 @@ import { StatusBadge } from "@/components/admin/fields";
 import { DeleteButton } from "@/components/admin/DeleteButton";
 import { deleteShowAction } from "@/app/(admin)/admin/_actions/shows";
 import { formatDateOnly } from "@/lib/formatDate";
+import { requireSession } from "@/lib/auth/guards";
+import { loadSection } from "@/lib/admin/queries";
+import { Card } from "@/components/admin/ui";
+import { SectionCopyForm } from "@/components/admin/SectionCopyForm";
 
 function startOfTodayUTC() {
   const now = new Date();
@@ -11,14 +15,18 @@ function startOfTodayUTC() {
 }
 
 export default async function ShowsPage({ searchParams }: { searchParams: Promise<{ tab?: string }> }) {
+  await requireSession();
   const { tab } = await searchParams;
   const isPast = tab === "past";
   const today = startOfTodayUTC();
 
-  const shows = await prisma.show.findMany({
-    where: { date: isPast ? { lt: today } : { gte: today } },
-    orderBy: { date: isPast ? "desc" : "asc" },
-  });
+  const [shows, section] = await Promise.all([
+    prisma.show.findMany({
+      where: { date: isPast ? { lt: today } : { gte: today } },
+      orderBy: { date: isPast ? "desc" : "asc" },
+    }),
+    loadSection("shows"),
+  ]);
 
   return (
     <div className="mx-auto max-w-[1240px] px-6 py-8 lg:px-10">
@@ -29,7 +37,13 @@ export default async function ShowsPage({ searchParams }: { searchParams: Promis
         </Link>
       </div>
 
-      <div className="mt-6 flex gap-1 border-b border-neutral-200">
+      <div className="mt-6">
+        <Card title="Textos da seção">
+          <SectionCopyForm sectionKey="shows" values={section} />
+        </Card>
+      </div>
+
+      <div className="mt-8 flex gap-1 border-b border-neutral-200">
         <Link
           href="/admin/shows"
           className={`px-3 py-2 text-sm ${!isPast ? "border-b-2 border-neutral-900 font-medium" : "text-neutral-500"}`}
@@ -46,7 +60,7 @@ export default async function ShowsPage({ searchParams }: { searchParams: Promis
 
       {shows.length === 0 ? (
         <p className="mt-8 text-sm text-neutral-500">
-          {isPast ? "Nenhum show passado." : "Nenhum show na agenda. Adicione o próximo compromisso do Alan."}
+          {isPast ? "Nenhum show passado." : "Nenhum show na agenda. Adicione o próximo compromisso."}
         </p>
       ) : (
         <ul className="mt-4 divide-y divide-neutral-200">

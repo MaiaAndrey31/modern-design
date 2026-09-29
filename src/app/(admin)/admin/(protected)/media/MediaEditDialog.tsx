@@ -112,7 +112,7 @@ export function MediaEditDialog({ item, onClose, onSaved }: MediaEditDialogProps
                 value={alt}
                 onChange={(e) => setAlt(e.target.value)}
                 maxLength={300}
-                placeholder="Ex.: Alan Saher tocando na Copa do Mundo 2014"
+                placeholder="Ex.: Apresentação ao vivo no festival, 2024"
                 className={inputClass}
               />
               <p className="mt-1 text-xs text-neutral-500">Lida por leitores de tela e pelo Google. Também é usada na busca da biblioteca.</p>
