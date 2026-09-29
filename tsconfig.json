@@ -30,5 +30,10 @@
     ".next/dev/types/**/*.ts",
     "**/*.mts"
   ],
-  "exclude": ["node_modules"]
+  "exclude": [
+    "node_modules",
+    // Pre-Modern seed kept only as reference data for the Phase 8 demo seed —
+    // written against the old schema, intentionally not compiled or runnable.
+    "prisma/legacy-seed"
+  ]
 }
