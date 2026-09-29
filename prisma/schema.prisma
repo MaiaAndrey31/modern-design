@@ -1,0 +1,634 @@
+// Alan Saher — CMS schema.
+// Database: PostgreSQL (Supabase). See README > "CMS / Admin" for the
+// DATABASE_URL (pooled, port 6543) vs DIRECT_URL (direct, port 5432) setup.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ---------------------------------------------------------------------------
+// Enums
+// ---------------------------------------------------------------------------
+
+enum Role {
+  ADMIN
+  EDITOR
+}
+
+enum ContentStatus {
+  DRAFT
+  PUBLISHED
+}
+
+enum MediaKind {
+  IMAGE
+  VIDEO
+  DOCUMENT
+}
+
+enum ReleaseType {
+  SINGLE
+  EP
+  ALBUM
+  REMIX
+}
+
+enum Orientation {
+  PORTRAIT
+  LANDSCAPE
+  SQUARE
+}
+
+/// Experience section's fixed 4-slot editorial grid. Maps to a statically
+/// written Tailwind class map in code — never store class strings in the DB
+/// (Tailwind v4 scans source files at build time; a class read from Postgres
+/// produces no generated CSS). See src/sections/Experience.tsx.
+enum FrameLayout {
+  WIDE
+  TALL
+}
+
+enum SocialPlatform {
+  INSTAGRAM
+  SPOTIFY
+  APPLE_MUSIC
+  YOUTUBE
+  TIKTOK
+  WHATSAPP
+}
+
+enum ShowStatus {
+  SCHEDULED
+  CANCELLED
+  POSTPONED
+  RESCHEDULED
+}
+
+enum BookingRequestStatus {
+  NEW
+  READ
+  REPLIED
+  ARCHIVED
+}
+
+enum Locale {
+  en
+  pt
+}
+
+enum NavigationLocation {
+  HEADER
+  FOOTER_PRIMARY
+  FOOTER_SECONDARY
+  FOOTER_LEGAL
+  MOBILE
+}
+
+enum NavigationItemType {
+  SECTION
+  ROUTE
+  EXTERNAL
+}
+
+enum FontId {
+  INTER
+  MANROPE
+  MONTSERRAT
+  SPACE_GROTESK
+  ORBITRON
+  POPPINS
+  PLAYFAIR_DISPLAY
+  CORMORANT_GARAMOND
+}
+
+// ---------------------------------------------------------------------------
+// Auth.js v5 (credentials provider ⇒ JWT sessions; Session/Account tables
+// stay in place so an OAuth provider can be added later without a migration)
+// ---------------------------------------------------------------------------
+
+model User {
+  id                  String    @id @default(cuid())
+  name                String?
+  email               String    @unique
+  emailVerified       DateTime?
+  image               String?
+  passwordHash        String?
+  role                Role      @default(EDITOR)
+  isActive            Boolean   @default(true)
+  failedLoginAttempts Int       @default(0)
+  lockedUntil         DateTime?
+  lastLoginAt         DateTime?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  accounts      Account[]
+  sessions      Session[]
+  uploadedMedia Media[]    @relation("MediaUploader")
+  auditLogs     AuditLog[]
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// ---------------------------------------------------------------------------
+// Media — the hub. Every content model below points at Media by FK with
+// onDelete: Restrict, and Media carries the matching named back-relation, so
+// "is this file in use?" is one query (see src/lib/content/media.ts) backed
+// by a real DB constraint, not just a UI-level check.
+//
+// IMPORTANT: adding a new media FK elsewhere in this schema requires adding
+// the matching back-relation here, or the usage check silently under-reports.
+// ---------------------------------------------------------------------------
+
+model Media {
+  id           String    @id @default(cuid())
+  bucket       String    @default("uploads")
+  path         String    @unique
+  url          String
+  kind         MediaKind @default(IMAGE)
+  mimeType     String
+  sizeBytes    Int
+  width        Int?
+  height       Int?
+  durationSec  Int?
+  blurDataUrl  String?   @db.Text
+  alt          String?
+  title        String?
+  /// Canonical values: hero | statement | story | stages | narrative | experience |
+  /// gallery | releases | press | presskit | shows | branding | general.
+  /// The application keeps this as a controlled string rather than a Prisma enum so
+  /// new editorial categories can be added without a schema-wide migration.
+  folder       String    @default("general")
+  category     String    @default("general")
+  uploadedById String?
+  uploadedBy   User?     @relation("MediaUploader", fields: [uploadedById], references: [id], onDelete: SetNull)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  heroBackgrounds            Hero[]             @relation("HeroBackground")
+  heroVideos                 Hero[]             @relation("HeroVideo")
+  heroPosters                Hero[]             @relation("HeroPoster")
+  narrativeBgs               NarrativeSection[] @relation("NarrativeBackground")
+  statementBgs               StatementSection[] @relation("StatementBackground")
+  timelineEvents             TimelineEvent[]
+  worldStageImages           WorldStage[]       @relation("StageImage")
+  worldStageVideos           WorldStage[]       @relation("StageVideo")
+  experienceFrames           ExperienceFrame[]
+  releaseCovers              Release[]
+  galleryItems               GalleryItem[]
+  pressLogos                 PressItem[]
+  pressKitOneSheets          PressKit[]         @relation("PressKitOneSheet")
+  pressKitPhotoPacks         PressKit[]         @relation("PressKitPhotos")
+  pressKitLogoPacks          PressKit[]         @relation("PressKitLogos")
+  seoOgImages                SeoSettings[]      @relation("SeoOgImage")
+  showImages                 Show[]
+  brandPrimaryLogos          BrandSettings[]    @relation("BrandPrimaryLogo")
+  brandSecondaryLogos        BrandSettings[]    @relation("BrandSecondaryLogo")
+  brandLightLogos            BrandSettings[]    @relation("BrandLightLogo")
+  brandDarkLogos             BrandSettings[]    @relation("BrandDarkLogo")
+  brandFavicons              BrandSettings[]    @relation("BrandFavicon")
+  brandIcons                 BrandSettings[]    @relation("BrandIcon")
+  headerLogos                HeaderSettings[]   @relation("HeaderLogo")
+  headerMobileLogos         HeaderSettings[]   @relation("HeaderMobileLogo")
+  footerLogos                FooterSettings[]   @relation("FooterLogo")
+
+  @@index([kind, folder])
+  @@index([category, kind])
+  @@index([createdAt])
+}
+
+// ---------------------------------------------------------------------------
+// Singletons — always id: "singleton", always upsert(), never findFirst().
+// ---------------------------------------------------------------------------
+
+model SiteSettings {
+  id              String   @id @default("site")
+  defaultLocale    Locale   @default(en)
+  siteUrl         String?
+  timezone        String   @default("UTC")
+  maintenanceMode  Boolean  @default(false)
+  artistName      String   @default("Alan Saher")
+  roles           String[] @default(["DJ", "Producer", "Entertainer"])
+  startYear       Int      @default(1993)
+  tagline         String   @default("A premium digital experience")
+  originStatement String   @default("From Minas to the World.")
+  signaturePhrase String?
+  bioShort        String   @db.Text @default("A premium digital experience for a modern brand.")
+  bioFull         String   @db.Text @default("Modern brand content provided by the CMS.")
+  whatsappNumber  String?
+  footerNote      String?  @default("Built as a digital experience — not a template.")
+  updatedAt       DateTime @updatedAt
+}
+
+model BrandSettings {
+  id                  String   @id @default("brand")
+  brandName           String   @default("Modern")
+  shortName           String   @default("Modern")
+  taglinePt           String   @default("A premium digital experience")
+  taglineEn           String   @default("A premium digital experience")
+  descriptionPt        String   @db.Text @default("Modern is a reusable digital platform engine.")
+  descriptionEn        String   @db.Text @default("Modern is a reusable digital platform engine.")
+  primaryLogoId       String?
+  primaryLogo         Media?   @relation("BrandPrimaryLogo", fields: [primaryLogoId], references: [id], onDelete: Restrict)
+  secondaryLogoId     String?
+  secondaryLogo       Media?   @relation("BrandSecondaryLogo", fields: [secondaryLogoId], references: [id], onDelete: Restrict)
+  lightLogoId         String?
+  lightLogo           Media?   @relation("BrandLightLogo", fields: [lightLogoId], references: [id], onDelete: Restrict)
+  darkLogoId          String?
+  darkLogo            Media?   @relation("BrandDarkLogo", fields: [darkLogoId], references: [id], onDelete: Restrict)
+  faviconId           String?
+  favicon             Media?   @relation("BrandFavicon", fields: [faviconId], references: [id], onDelete: Restrict)
+  iconId              String?
+  icon                Media?   @relation("BrandIcon", fields: [iconId], references: [id], onDelete: Restrict)
+  updatedAt           DateTime @updatedAt
+}
+
+model ThemeSettings {
+  id            String   @id @default("theme")
+  background    String   @default("#050505")
+  surface       String   @default("#111111")
+  foreground    String   @default("#F5F5F2")
+  textPrimary   String   @default("#F5F5F2")
+  textMuted     String   @default("#A3A29C")
+  primary       String   @default("#D9A94E")
+  secondary     String   @default("#F0D8A0")
+  accent        String   @default("#EDC060")
+  border        String   @default("#232323")
+  success       String   @default("#3CB371")
+  warning       String   @default("#F0B429")
+  danger        String   @default("#E15241")
+  buttonRadius  Int      @default(999)
+  cardRadius    Int      @default(24)
+  modalRadius   Int      @default(32)
+  pillRadius    Int      @default(999)
+  updatedAt     DateTime @updatedAt
+}
+
+model TypographySettings {
+  id              String   @id @default("typography")
+  displayFontId   FontId   @default(ORBITRON)
+  headingFontId   FontId   @default(SPACE_GROTESK)
+  bodyFontId      FontId   @default(INTER)
+  displayWeight   Int      @default(700)
+  headingWeight   Int      @default(700)
+  bodyWeight      Int      @default(400)
+  updatedAt       DateTime @updatedAt
+}
+
+model HeaderSettings {
+  id                 String   @id @default("header")
+  logoMediaId        String?
+  logo               Media?   @relation("HeaderLogo", fields: [logoMediaId], references: [id], onDelete: Restrict)
+  mobileLogoMediaId  String?
+  mobileLogo         Media?   @relation("HeaderMobileLogo", fields: [mobileLogoMediaId], references: [id], onDelete: Restrict)
+  showLanguageSwitch Boolean  @default(true)
+  showCta            Boolean  @default(true)
+  ctaLabelPt         String   @default("Book")
+  ctaLabelEn         String   @default("Book")
+  ctaUrl             String   @default("#booking")
+  ctaTarget          String   @default("booking")
+  showSocials        Boolean  @default(true)
+  updatedAt          DateTime @updatedAt
+}
+
+model FooterSettings {
+  id               String   @id @default("footer")
+  logoMediaId      String?
+  logo             Media?   @relation("FooterLogo", fields: [logoMediaId], references: [id], onDelete: Restrict)
+  descriptionPt     String   @db.Text @default("A premium digital experience.")
+  descriptionEn     String   @db.Text @default("A premium digital experience.")
+  copyright        String   @default("© 2026 Modern.")
+  contactEmail     String?
+  contactPhone     String?
+  showSocials      Boolean  @default(true)
+  showBookingCta   Boolean  @default(true)
+  bookingLabelPt   String   @default("Book now")
+  bookingLabelEn   String   @default("Book now")
+  bookingUrl       String   @default("#booking")
+  updatedAt        DateTime @updatedAt
+}
+
+model NavigationItem {
+  id          String               @id @default(cuid())
+  location    NavigationLocation   @default(HEADER)
+  labelPt     String
+  labelEn     String
+  type        NavigationItemType   @default(SECTION)
+  targetValue String              @default("#")
+  enabled     Boolean             @default(true)
+  sortOrder   Int                 @default(0)
+  updatedAt   DateTime            @updatedAt
+
+  @@index([location, enabled, sortOrder])
+}
+
+model Hero {
+  id                 String   @id @default("singleton")
+  headlineLines      String[] @default(["Alan", "Saher"])
+  eyebrowOverride    String?
+  backgroundImageId  String?
+  backgroundImage    Media?   @relation("HeroBackground", fields: [backgroundImageId], references: [id], onDelete: Restrict)
+  videoId            String?
+  video              Media?   @relation("HeroVideo", fields: [videoId], references: [id], onDelete: Restrict)
+  posterImageId      String?
+  posterImage        Media?   @relation("HeroPoster", fields: [posterImageId], references: [id], onDelete: Restrict)
+  /// Background video from YouTube (takes precedence over `video` when set).
+  youtubeUrl         String?
+  enableWebgl        Boolean  @default(true)
+  primaryCtaLabel    String   @default("Explore")
+  primaryCtaTarget   String   @default("story")
+  secondaryCtaLabel  String   @default("Booking")
+  secondaryCtaTarget String   @default("booking")
+  updatedAt          DateTime @updatedAt
+}
+
+model StatementSection {
+  id                String   @id @default("singleton")
+  lines             String[] @default(["From Minas", "to the", "World."])
+  accentIndex       Int?     @default(2)
+  backgroundImageId String?
+  backgroundImage   Media?   @relation("StatementBackground", fields: [backgroundImageId], references: [id], onDelete: Restrict)
+  isVisible         Boolean  @default(true)
+  updatedAt         DateTime @updatedAt
+}
+
+model StoryContent {
+  id           String   @id @default("singleton")
+  eyebrow      String   @default("The Story")
+  headingLine1 String   @default("30+ years,")
+  headingLine2 String   @default("one journey.")
+  isVisible    Boolean  @default(true)
+  updatedAt    DateTime @updatedAt
+}
+
+model NarrativeSection {
+  id                String   @id @default("singleton")
+  lines             String[] @default(["The stage changes.", "The crowd changes.", "The country changes.", "The energy doesn't."])
+  finalWordOverride String?
+  vhPerLine         Int      @default(95)
+  backgroundImageId String?
+  backgroundImage   Media?   @relation("NarrativeBackground", fields: [backgroundImageId], references: [id], onDelete: Restrict)
+  isVisible         Boolean  @default(true)
+  updatedAt         DateTime @updatedAt
+}
+
+model ExperienceSection {
+  id        String   @id @default("singleton")
+  eyebrow   String   @default("The Experience")
+  heading   String   @default("Lights, crowd, energy.")
+  isVisible Boolean  @default(true)
+  updatedAt DateTime @updatedAt
+}
+
+model PressKit {
+  id            String   @id @default("singleton")
+  eyebrow       String   @default("Press Kit")
+  heading       String   @default("For promoters & media.")
+  bioOverride   String?  @db.Text
+  oneSheetId    String?
+  oneSheet      Media?   @relation("PressKitOneSheet", fields: [oneSheetId], references: [id], onDelete: Restrict)
+  photoPackId   String?
+  photoPack     Media?   @relation("PressKitPhotos", fields: [photoPackId], references: [id], onDelete: Restrict)
+  logoPackId    String?
+  logoPack      Media?   @relation("PressKitLogos", fields: [logoPackId], references: [id], onDelete: Restrict)
+  downloadsNote String?  @default("Downloadable one-sheet, photos and logos — coming soon")
+  isVisible     Boolean  @default(true)
+  updatedAt     DateTime @updatedAt
+}
+
+model BookingSettings {
+  id             String   @id @default("singleton")
+  eyebrow        String   @default("Booking")
+  heading        String   @default("Bring the experience to your event.")
+  intro          String   @db.Text
+  successTitle   String   @default("Request received.")
+  successMessage String   @default("Thank you — the team will be in touch shortly.")
+  notifyEmail    String?
+  isFormEnabled  Boolean  @default(true)
+  updatedAt      DateTime @updatedAt
+}
+
+model SeoSettings {
+  id              String   @id @default("singleton")
+  metaTitle       String   @default("Alan Saher — The Experience")
+  metaDescription String   @db.Text
+  ogImageId       String?
+  ogImage         Media?   @relation("SeoOgImage", fields: [ogImageId], references: [id], onDelete: Restrict)
+  twitterHandle   String?
+  robotsIndex     Boolean  @default(true)
+  updatedAt       DateTime @updatedAt
+}
+
+// ---------------------------------------------------------------------------
+// Collections — sortable, publishable. Every collection: sortOrder + status
+// + timestamps + @@index([status, sortOrder]). Reordering rewrites the whole
+// (short) list's sortOrder in one transaction; no float-gap arithmetic.
+// ---------------------------------------------------------------------------
+
+model TimelineEvent {
+  id          String        @id @default(cuid())
+  yearLabel   String
+  title       String
+  subtitle    String?
+  description String        @db.Text
+  imageId     String?
+  image       Media?        @relation(fields: [imageId], references: [id], onDelete: Restrict)
+  sortOrder   Int           @default(0)
+  status      ContentStatus @default(DRAFT)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  @@index([status, sortOrder])
+}
+
+model WorldStage {
+  id            String        @id @default(cuid())
+  yearLabel     String
+  title         String
+  location      String
+  description   String        @db.Text
+  imageId       String?
+  image         Media?        @relation("StageImage", fields: [imageId], references: [id], onDelete: Restrict)
+  videoId       String?
+  video         Media?        @relation("StageVideo", fields: [videoId], references: [id], onDelete: Restrict)
+  showInNumbers Boolean       @default(true)
+  sortOrder     Int           @default(0)
+  status        ContentStatus @default(DRAFT)
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  @@index([status, sortOrder])
+}
+
+model ExperienceFrame {
+  id        String        @id @default(cuid())
+  slot      Int           @unique
+  layout    FrameLayout   @default(WIDE)
+  offsetPx  Int           @default(0)
+  mediaId   String?
+  media     Media?        @relation(fields: [mediaId], references: [id], onDelete: Restrict)
+  alt       String
+  status    ContentStatus @default(DRAFT)
+  updatedAt DateTime      @updatedAt
+}
+
+model Release {
+  id            String        @id @default(cuid())
+  title         String
+  yearLabel     String
+  type          ReleaseType   @default(SINGLE)
+  coverId       String?
+  cover         Media?        @relation(fields: [coverId], references: [id], onDelete: Restrict)
+  spotifyUrl    String?
+  appleMusicUrl String?
+  youtubeUrl    String?
+  sortOrder     Int           @default(0)
+  status        ContentStatus @default(DRAFT)
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  @@index([status, sortOrder])
+}
+
+model Show {
+  id            String        @id @default(cuid())
+  title         String?
+  date          DateTime      @db.Date
+  time          String?
+  city          String
+  state         String?
+  country       String?       @default("Brasil")
+  venue         String
+  address       String?
+  ticketUrl     String?
+  soldOut       Boolean       @default(false)
+  featured      Boolean       @default(false)
+  showStatus    ShowStatus    @default(SCHEDULED)
+  imageId       String?
+  image         Media?        @relation(fields: [imageId], references: [id], onDelete: Restrict)
+  internalNotes String?       @db.Text
+  status        ContentStatus @default(DRAFT)
+  sortOrder     Int           @default(0)
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  @@index([status, date])
+}
+
+model GalleryItem {
+  id          String        @id @default(cuid())
+  mediaId     String
+  media       Media         @relation(fields: [mediaId], references: [id], onDelete: Restrict)
+  alt         String
+  caption     String?
+  orientation Orientation   @default(LANDSCAPE)
+  sortOrder   Int           @default(0)
+  status      ContentStatus @default(DRAFT)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  @@index([status, sortOrder])
+}
+
+model PressItem {
+  id          String        @id @default(cuid())
+  outlet      String
+  title       String
+  dateLabel   String
+  publishedAt DateTime?     @db.Date
+  url         String?
+  excerpt     String?       @db.Text
+  logoId      String?
+  logo        Media?        @relation(fields: [logoId], references: [id], onDelete: Restrict)
+  sortOrder   Int           @default(0)
+  status      ContentStatus @default(DRAFT)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  @@index([status, sortOrder])
+}
+
+model SocialLink {
+  id           String         @id @default(cuid())
+  platform     SocialPlatform @unique
+  label        String
+  url          String         @default("#")
+  isConfigured Boolean        @default(false)
+  sortOrder    Int            @default(0)
+  status       ContentStatus  @default(PUBLISHED)
+  updatedAt    DateTime       @updatedAt
+
+  @@index([status, sortOrder])
+}
+
+// ---------------------------------------------------------------------------
+// Operational models
+// ---------------------------------------------------------------------------
+
+model BookingRequest {
+  id        String               @id @default(cuid())
+  name      String
+  company   String?
+  whatsapp  String
+  email     String
+  city      String
+  eventType String
+  eventDate DateTime?            @db.Date
+  message   String?              @db.Text
+  status    BookingRequestStatus @default(NEW)
+  ipHash    String?
+  userAgent String?
+  createdAt DateTime             @default(now())
+
+  @@index([status, createdAt])
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  action    String
+  entity    String
+  entityId  String?
+  summary   String?
+  diff      Json?
+  createdAt DateTime @default(now())
+
+  @@index([entity, createdAt])
+}
