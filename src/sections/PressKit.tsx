@@ -1,6 +1,6 @@
 "use client";
 
-import type { PressKitDto } from "@/lib/content/dto";
+import type { PressKitDto } from "@/lib/content/legacyDto";
 import { Reveal } from "@/components/Reveal";
 import { useLocale } from "@/i18n/LocaleProvider";
 

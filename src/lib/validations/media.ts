@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { MEDIA_CATEGORIES, MEDIA_CATEGORY_LABELS, type MediaCategory } from "@/lib/media/categories";
 
 // SVG deliberately excluded — accepting user-uploaded SVG safely requires
 // server-side sanitization (embedded <script>/event-handler payloads); out
@@ -22,38 +23,11 @@ export function maxBytesFor(mime: string): number {
   return isVideoMime(mime) ? MAX_VIDEO_BYTES : MAX_IMAGE_BYTES;
 }
 
-export const MEDIA_FOLDERS = [
-  "hero",
-  "statement",
-  "story",
-  "stages",
-  "narrative",
-  "experience",
-  "gallery",
-  "releases",
-  "press",
-  "presskit",
-  "shows",
-  "general",
-] as const;
-
-export type MediaFolder = (typeof MEDIA_FOLDERS)[number];
-
-/** Admin-facing names — each folder is the section of the site whose image picker opens on it. */
-export const MEDIA_FOLDER_LABELS: Record<MediaFolder, string> = {
-  hero: "Hero (topo da página)",
-  statement: "Statement (From Minas to the World)",
-  story: "Carreira — Linha do tempo",
-  stages: "Carreira — Grandes Palcos",
-  narrative: "Transição narrativa",
-  experience: "The Experience",
-  gallery: "Galeria",
-  releases: "Música — Lançamentos",
-  press: "Imprensa",
-  presskit: "Press Kit",
-  shows: "Agenda — Shows",
-  general: "Geral (sem seção)",
-};
+// Upload/library categories come from the registry (src/lib/media/categories.ts).
+// The legacy admin UI still calls them "folders" — aliases kept until Phase 7.
+export const MEDIA_FOLDERS = MEDIA_CATEGORIES;
+export type MediaFolder = MediaCategory;
+export const MEDIA_FOLDER_LABELS = MEDIA_CATEGORY_LABELS;
 
 export const updateMediaMetaSchema = z.object({
   alt: z.string().trim().max(300),

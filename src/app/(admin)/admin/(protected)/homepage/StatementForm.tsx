@@ -12,7 +12,7 @@ export function StatementForm({ background }: { background: MediaValue | null })
 
   return (
     <form action={formAction} className="max-w-xl space-y-4">
-      <MediaPickerField label="Imagem de fundo" folder="statement" aspect="aspect-video" value={image} onChange={setImage} />
+      <MediaPickerField label="Imagem de fundo" folder="sections" aspect="aspect-video" value={image} onChange={setImage} />
       <input type="hidden" name="backgroundImageId" value={image?.id ?? ""} />
       <p className="text-xs text-neutral-500">
         Fundo da seção &quot;From Minas to the World.&quot;. O texto fica à esquerda, então prefira imagens com o destaque à direita. Sem imagem

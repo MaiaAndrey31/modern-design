@@ -15,9 +15,9 @@ export default async function EditWorldStagePage({ params }: { params: Promise<{
         <WorldStageForm
           initialValues={{
             yearLabel: stage.yearLabel,
-            title: stage.title,
-            location: stage.location,
-            description: stage.description,
+            title: stage.titlePt, // TEMPORARY (Phase 3 → 4): PT fields
+            location: stage.locationPt,
+            description: stage.descriptionPt,
             showInNumbers: stage.showInNumbers,
             published: stage.status === "PUBLISHED",
             image: stage.image ? { id: stage.image.id, url: stage.image.url } : null,

@@ -2,46 +2,42 @@ import "server-only";
 import { cache } from "react";
 import { unstable_cache } from "next/cache";
 import { prisma } from "@/lib/db";
+import { localizedList, localizedOptional } from "@/lib/i18n/locale";
+import { STORY_LIMITS } from "@/lib/story/registry";
 import { CACHE_TAGS } from "./tags";
-import { getSiteSettings } from "./site";
+import { SINGLETON_ID } from "./singleton";
+import { SYSTEM_DEFAULTS } from "./defaults";
+import { toMediaRef } from "./mappers";
+import { getBrand } from "./brand";
 import type { NarrativeDto } from "./dto";
 
-const FALLBACK_LINES = [
-  "The stage changes.",
-  "The crowd changes.",
-  "The country changes.",
-  "The energy doesn't.",
-];
+const { min, max } = STORY_LIMITS.narrativeVhPerLine;
 
 const query = unstable_cache(
-  async (): Promise<Omit<NarrativeDto, "finalWord"> & { finalWordOverride: string | null }> => {
+  async () => {
     const row = await prisma.narrativeSection.findUnique({
-      where: { id: "singleton" },
+      where: { id: SINGLETON_ID },
       include: { backgroundImage: true },
     });
-    if (!row || !row.isVisible) {
-      return { lines: [], backgroundUrl: null, vhPerLine: 95, finalWordOverride: null };
-    }
+    const r = row ?? { ...SYSTEM_DEFAULTS.narrative, backgroundImage: null };
     return {
-      lines: row.lines.length > 0 ? row.lines : FALLBACK_LINES,
-      backgroundUrl: row.backgroundImage?.url ?? null,
-      vhPerLine: row.vhPerLine,
-      finalWordOverride: row.finalWordOverride,
+      lines: localizedList(r.linesPt, r.linesEn),
+      finalWord: localizedOptional(r.finalWordPt, r.finalWordEn),
+      vhPerLine: Math.min(max, Math.max(min, r.vhPerLine)),
+      backgroundImage: toMediaRef(r.backgroundImage),
     };
   },
   ["content", "narrative"],
-  { tags: [CACHE_TAGS.narrative, CACHE_TAGS.all], revalidate: 3600 }
+  { tags: [CACHE_TAGS.narrative, CACHE_TAGS.media, CACHE_TAGS.all], revalidate: 3600 }
 );
 
 const cachedQuery = cache(query);
 
-/** Resolves `finalWord` against SiteSettings.artistName when no override is set. */
+/** `finalWord` falls back to the brand name. No lines → the section renders nothing. */
 export async function getNarrative(): Promise<NarrativeDto> {
-  const [narrative, site] = await Promise.all([cachedQuery(), getSiteSettings()]);
+  const [narrative, brand] = await Promise.all([cachedQuery(), getBrand()]);
   return {
-    lines: narrative.lines,
-    backgroundUrl: narrative.backgroundUrl,
-    vhPerLine: narrative.vhPerLine,
-    finalWord: narrative.finalWordOverride ?? site.artistName,
+    ...narrative,
+    finalWord: narrative.finalWord ?? { pt: brand.brandName, en: brand.brandName },
   };
 }

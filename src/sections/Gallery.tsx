@@ -4,7 +4,7 @@ import Image from "next/image";
 import { useCallback, useMemo, useRef, useState } from "react";
 import { useGSAP } from "@gsap/react";
 import { gsap } from "@/lib/gsap";
-import type { GalleryDto } from "@/lib/content/dto";
+import type { GalleryDto } from "@/lib/content/legacyDto";
 import { Reveal } from "@/components/Reveal";
 import { Lightbox, type LightboxItem } from "@/components/Lightbox";
 import { GallerySpiral } from "@/components/gallery/GallerySpiral";

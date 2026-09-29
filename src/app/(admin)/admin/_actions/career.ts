@@ -23,20 +23,22 @@ async function upsertTimelineEvent(id: string | null, formData: FormData): Promi
   if (!parsed.success) return { ok: false, fieldErrors: parsed.error.flatten().fieldErrors };
   const data = parsed.data;
 
+  // TEMPORARY (Phase 3 → 4): the legacy single-language form writes the PT
+  // fields of StoryChapter; the Phase 4 Story editor replaces this form.
   const payload = {
-    yearLabel: data.yearLabel,
-    title: data.title,
-    subtitle: data.subtitle || null,
-    description: data.description,
+    periodLabelPt: data.yearLabel,
+    titlePt: data.title,
+    conceptPt: data.subtitle || data.title,
+    textPt: data.description,
     imageId: data.imageId || null,
     status: (data.published ? "PUBLISHED" : "DRAFT") as "PUBLISHED" | "DRAFT",
   };
 
   if (id) {
-    await prisma.timelineEvent.update({ where: { id }, data: payload });
+    await prisma.storyChapter.update({ where: { id }, data: payload });
   } else {
-    const maxOrder = await prisma.timelineEvent.aggregate({ _max: { sortOrder: true } });
-    await prisma.timelineEvent.create({ data: { ...payload, sortOrder: (maxOrder._max.sortOrder ?? 0) + 1 } });
+    const maxOrder = await prisma.storyChapter.aggregate({ _max: { sortOrder: true } });
+    await prisma.storyChapter.create({ data: { ...payload, sortOrder: (maxOrder._max.sortOrder ?? 0) + 1 } });
   }
 
   updateTag(CACHE_TAGS.story);
@@ -54,7 +56,7 @@ export async function updateTimelineEventAction(id: string, _prev: ActionState, 
 
 export async function deleteTimelineEventAction(id: string) {
   await requireRole(["ADMIN", "EDITOR"]);
-  await prisma.timelineEvent.delete({ where: { id } });
+  await prisma.storyChapter.delete({ where: { id } });
   updateTag(CACHE_TAGS.story);
   revalidatePath("/");
 }
@@ -62,14 +64,14 @@ export async function deleteTimelineEventAction(id: string) {
 /** Swaps sortOrder with the adjacent item — simple, no-code reordering without a full drag UI. */
 export async function moveTimelineEventAction(id: string, direction: "up" | "down") {
   await requireRole(["ADMIN", "EDITOR"]);
-  const items = await prisma.timelineEvent.findMany({ orderBy: { sortOrder: "asc" } });
+  const items = await prisma.storyChapter.findMany({ orderBy: { sortOrder: "asc" } });
   const index = items.findIndex((i) => i.id === id);
   const swapIndex = direction === "up" ? index - 1 : index + 1;
   if (index === -1 || swapIndex < 0 || swapIndex >= items.length) return;
 
   await prisma.$transaction([
-    prisma.timelineEvent.update({ where: { id: items[index].id }, data: { sortOrder: items[swapIndex].sortOrder } }),
-    prisma.timelineEvent.update({ where: { id: items[swapIndex].id }, data: { sortOrder: items[index].sortOrder } }),
+    prisma.storyChapter.update({ where: { id: items[index].id }, data: { sortOrder: items[swapIndex].sortOrder } }),
+    prisma.storyChapter.update({ where: { id: items[swapIndex].id }, data: { sortOrder: items[index].sortOrder } }),
   ]);
   updateTag(CACHE_TAGS.story);
   revalidatePath("/");
@@ -91,11 +93,12 @@ async function upsertWorldStage(id: string | null, formData: FormData): Promise<
   if (!parsed.success) return { ok: false, fieldErrors: parsed.error.flatten().fieldErrors };
   const data = parsed.data;
 
+  // TEMPORARY (Phase 3 → 4): legacy single-language form → PT fields.
   const payload = {
     yearLabel: data.yearLabel,
-    title: data.title,
-    location: data.location,
-    description: data.description,
+    titlePt: data.title,
+    locationPt: data.location,
+    descriptionPt: data.description,
     showInNumbers: data.showInNumbers ?? false,
     imageId: data.imageId || null,
     status: (data.published ? "PUBLISHED" : "DRAFT") as "PUBLISHED" | "DRAFT",

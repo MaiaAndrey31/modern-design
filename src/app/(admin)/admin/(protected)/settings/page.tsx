@@ -1,8 +1,10 @@
 import { prisma } from "@/lib/db";
+import { SINGLETON_ID } from "@/lib/content/singleton";
+import { legacyPlatformId, type LegacySocialPlatform } from "@/lib/validations/admin/settings";
 import { SiteIdentityForm } from "./SiteIdentityForm";
 import { SocialLinkRow } from "./SocialLinkRow";
 
-const PLATFORMS: { platform: "INSTAGRAM" | "SPOTIFY" | "APPLE_MUSIC" | "YOUTUBE" | "TIKTOK" | "WHATSAPP"; label: string }[] = [
+const PLATFORMS: { platform: LegacySocialPlatform; label: string }[] = [
   { platform: "INSTAGRAM", label: "Instagram" },
   { platform: "SPOTIFY", label: "Spotify" },
   { platform: "APPLE_MUSIC", label: "Apple Music" },
@@ -12,9 +14,12 @@ const PLATFORMS: { platform: "INSTAGRAM" | "SPOTIFY" | "APPLE_MUSIC" | "YOUTUBE"
 ];
 
 export default async function SettingsPage() {
-  const [site, socialLinks] = await Promise.all([
-    prisma.siteSettings.findUnique({ where: { id: "singleton" } }),
-    prisma.socialLink.findMany(),
+  // TEMPORARY (Phase 3 → 4): the legacy identity form reads from brand + profile + site.
+  const [site, brand, profile, socialLinks] = await Promise.all([
+    prisma.siteSettings.findUnique({ where: { id: SINGLETON_ID } }),
+    prisma.brandSettings.findUnique({ where: { id: SINGLETON_ID } }),
+    prisma.profile.findUnique({ where: { id: SINGLETON_ID } }),
+    prisma.socialLink.findMany({ orderBy: { sortOrder: "asc" } }),
   ]);
 
   return (
@@ -26,10 +31,10 @@ export default async function SettingsPage() {
         <div className="mt-4">
           <SiteIdentityForm
             initialValues={{
-              artistName: site?.artistName,
-              roles: site?.roles,
-              startYear: site?.startYear,
-              bioShort: site?.bioShort,
+              artistName: brand?.brandName,
+              roles: profile?.rolesPt,
+              startYear: profile?.foundedYear ?? undefined,
+              bioShort: brand?.descriptionPt,
               whatsappNumber: site?.whatsappNumber ?? "",
             }}
           />
@@ -40,14 +45,14 @@ export default async function SettingsPage() {
         <h2 className="text-sm font-semibold uppercase tracking-wide text-neutral-500">Redes sociais</h2>
         <div className="mt-4">
           {PLATFORMS.map(({ platform, label }) => {
-            const existing = socialLinks.find((l) => l.platform === platform);
+            const existing = socialLinks.find((l) => l.platform === legacyPlatformId(platform));
             return (
               <SocialLinkRow
                 key={platform}
                 platform={platform}
                 defaultLabel={existing?.label ?? label}
                 url={existing?.url ?? ""}
-                configured={existing?.isConfigured ?? false}
+                configured={existing?.enabled ?? false}
               />
             );
           })}

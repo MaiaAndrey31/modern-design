@@ -29,7 +29,7 @@ export function ReleaseForm({
 
   return (
     <form action={formAction} className="max-w-xl space-y-6">
-      <MediaPickerField label="Capa" folder="releases" aspect="aspect-square" value={cover} onChange={setCover} required />
+      <MediaPickerField label="Capa" folder="music" aspect="aspect-square" value={cover} onChange={setCover} required />
       <input type="hidden" name="coverId" value={cover?.id ?? ""} />
 
       <TextField label="Título" name="title" required defaultValue={initialValues.title} error={state.fieldErrors?.title?.[0]} />

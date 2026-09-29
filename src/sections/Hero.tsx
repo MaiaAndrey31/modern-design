@@ -5,7 +5,7 @@ import Image from "next/image";
 import { useRef, useState } from "react";
 import { useGSAP } from "@gsap/react";
 import { gsap } from "@/lib/gsap";
-import type { HeroDto, SiteDto } from "@/lib/content/dto";
+import type { HeroDto, SiteDto } from "@/lib/content/legacyDto";
 import { useAppReady } from "@/hooks/useAppReady";
 import { usePrefersReducedMotion } from "@/hooks/usePrefersReducedMotion";
 import { useMediaQuery } from "@/hooks/useMediaQuery";

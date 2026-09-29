@@ -1,10 +1,13 @@
 import { prisma } from "@/lib/db";
+import { SINGLETON_ID } from "@/lib/content/singleton";
 import { BookingSettingsForm } from "./BookingSettingsForm";
 import { BookingInbox } from "./BookingInbox";
 
 export default async function BookingAdminPage() {
-  const [settings, requests] = await Promise.all([
-    prisma.bookingSettings.findUnique({ where: { id: "singleton" } }),
+  // TEMPORARY (Phase 3 → 4): legacy single-language screen reads/writes the PT fields.
+  const [settings, section, requests] = await Promise.all([
+    prisma.bookingSection.findUnique({ where: { id: SINGLETON_ID } }),
+    prisma.section.findUnique({ where: { key: "booking" } }),
     prisma.bookingRequest.findMany({ orderBy: { createdAt: "desc" }, take: 100 }),
   ]);
 
@@ -17,8 +20,8 @@ export default async function BookingAdminPage() {
         <div className="mt-4">
           <BookingSettingsForm
             initialValues={{
-              heading: settings?.heading,
-              intro: settings?.intro,
+              heading: section?.titlePt ?? undefined,
+              intro: section?.descriptionPt ?? undefined,
               notifyEmail: settings?.notifyEmail ?? "",
               isFormEnabled: settings?.isFormEnabled,
             }}

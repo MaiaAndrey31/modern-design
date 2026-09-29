@@ -1,13 +1,16 @@
 import { prisma } from "@/lib/db";
+import { SINGLETON_ID } from "@/lib/content/singleton";
 import { HeroForm } from "./HeroForm";
 import { BioForm } from "./BioForm";
 import { StatementForm } from "./StatementForm";
 
 export default async function HomepagePage() {
-  const [hero, site, statement] = await Promise.all([
-    prisma.hero.findUnique({ where: { id: "singleton" }, include: { backgroundImage: true, video: true } }),
-    prisma.siteSettings.findUnique({ where: { id: "singleton" } }),
-    prisma.statementSection.findUnique({ where: { id: "singleton" }, include: { backgroundImage: true } }),
+  // TEMPORARY (Phase 3 → 4): legacy single-language screen reads/writes the PT fields.
+  const [hero, heroSection, profile, statement] = await Promise.all([
+    prisma.heroSection.findUnique({ where: { id: SINGLETON_ID }, include: { backgroundImage: true, video: true } }),
+    prisma.section.findUnique({ where: { key: "hero" } }),
+    prisma.profile.findUnique({ where: { id: SINGLETON_ID } }),
+    prisma.statementSection.findUnique({ where: { id: SINGLETON_ID }, include: { backgroundImage: true } }),
   ]);
 
   return (
@@ -19,13 +22,13 @@ export default async function HomepagePage() {
         <div className="mt-4">
           <HeroForm
             initialValues={{
-              headlineLine1: hero?.headlineLines?.[0] ?? "Alan",
-              headlineLine2: hero?.headlineLines?.[1] ?? "Saher",
-              eyebrowOverride: hero?.eyebrowOverride ?? "",
-              primaryCtaLabel: hero?.primaryCtaLabel,
-              primaryCtaTarget: hero?.primaryCtaTarget,
-              secondaryCtaLabel: hero?.secondaryCtaLabel,
-              secondaryCtaTarget: hero?.secondaryCtaTarget,
+              headlineLine1: hero?.headlineLinesPt?.[0] ?? "",
+              headlineLine2: hero?.headlineLinesPt?.[1] ?? "",
+              eyebrowOverride: heroSection?.eyebrowPt ?? "",
+              primaryCtaLabel: hero?.primaryCtaLabelPt ?? undefined,
+              primaryCtaTarget: hero?.primaryCtaTarget ?? undefined,
+              secondaryCtaLabel: hero?.secondaryCtaLabelPt ?? undefined,
+              secondaryCtaTarget: hero?.secondaryCtaTarget ?? undefined,
               enableWebgl: hero?.enableWebgl,
               background: hero?.backgroundImage ? { id: hero.backgroundImage.id, url: hero.backgroundImage.url } : null,
               backgroundType: hero?.youtubeUrl ? "youtube" : hero?.video ? "video" : "image",
@@ -37,7 +40,7 @@ export default async function HomepagePage() {
       </section>
 
       <section className="mt-12 border-t border-neutral-200 pt-8">
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-neutral-500">Statement — From Minas to the World</h2>
+        <h2 className="text-sm font-semibold uppercase tracking-wide text-neutral-500">Statement</h2>
         <div className="mt-4">
           <StatementForm
             background={statement?.backgroundImage ? { id: statement.backgroundImage.id, url: statement.backgroundImage.url } : null}
@@ -48,7 +51,7 @@ export default async function HomepagePage() {
       <section className="mt-12 border-t border-neutral-200 pt-8">
         <h2 className="text-sm font-semibold uppercase tracking-wide text-neutral-500">Biografia</h2>
         <div className="mt-4">
-          <BioForm bioFull={site?.bioFull ?? ""} />
+          <BioForm bioFull={profile?.bioPt ?? ""} />
         </div>
       </section>
     </div>

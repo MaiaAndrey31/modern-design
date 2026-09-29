@@ -1,7 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
-import { getSiteSettings } from "@/lib/content/site";
-import { getSeoSettings } from "@/lib/content/seo";
+import { getLegacySite as getSiteSettings } from "@/lib/content/legacy"; // TEMPORARY (Phase 3 → 5)
+import { getLegacySeo as getSeoSettings } from "@/lib/content/legacy";
 import { SmoothScrollProvider } from "@/components/SmoothScrollProvider";
 import { CustomCursor } from "@/components/CustomCursor";
 import { AppReadyProvider } from "@/hooks/useAppReady";

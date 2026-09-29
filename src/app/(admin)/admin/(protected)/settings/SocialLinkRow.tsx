@@ -4,7 +4,7 @@ import { useTransition } from "react";
 import { TextField, SaveButton } from "@/components/admin/fields";
 import { useSavedFeedback } from "@/components/admin/useSavedFeedback";
 import { upsertSocialLinkAction, disableSocialLinkAction } from "@/app/(admin)/admin/_actions/settings";
-import type { SocialPlatform } from "@/generated/prisma/client";
+import type { LegacySocialPlatform } from "@/lib/validations/admin/settings";
 
 export function SocialLinkRow({
   platform,
@@ -12,7 +12,7 @@ export function SocialLinkRow({
   url,
   configured,
 }: {
-  platform: SocialPlatform;
+  platform: LegacySocialPlatform;
   defaultLabel: string;
   url: string;
   configured: boolean;

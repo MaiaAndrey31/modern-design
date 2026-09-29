@@ -1,6 +1,6 @@
 "use client";
 
-import type { ShowDto } from "@/lib/content/dto";
+import type { ShowDto } from "@/lib/content/legacyDto";
 import { Reveal } from "@/components/Reveal";
 import { MagneticButton } from "@/components/MagneticButton";
 import { scrollToSection } from "@/lib/lenisStore";

@@ -4,6 +4,7 @@ import { updateTag, revalidatePath } from "next/cache";
 import { requireRole } from "@/lib/auth/guards";
 import { prisma } from "@/lib/db";
 import { CACHE_TAGS } from "@/lib/content/tags";
+import { SINGLETON_ID } from "@/lib/content/singleton";
 import { seoSettingsSchema } from "@/lib/validations/admin/seo";
 import type { ActionState } from "@/lib/validations/admin/actionState";
 
@@ -22,19 +23,20 @@ export async function updateSeoSettingsAction(_prev: ActionState, formData: Form
 
   const twitterHandle = data.twitterHandle ? (data.twitterHandle.startsWith("@") ? data.twitterHandle : `@${data.twitterHandle}`) : null;
 
+  // TEMPORARY (Phase 3 → 4): legacy single-language form → PT fields.
   await prisma.seoSettings.upsert({
-    where: { id: "singleton" },
+    where: { id: SINGLETON_ID },
     create: {
-      id: "singleton",
-      metaTitle: data.metaTitle,
-      metaDescription: data.metaDescription,
+      id: SINGLETON_ID,
+      metaTitlePt: data.metaTitle,
+      metaDescriptionPt: data.metaDescription,
       twitterHandle,
       robotsIndex: data.robotsIndex ?? true,
       ogImageId: data.ogImageId || null,
     },
     update: {
-      metaTitle: data.metaTitle,
-      metaDescription: data.metaDescription,
+      metaTitlePt: data.metaTitle,
+      metaDescriptionPt: data.metaDescription,
       twitterHandle,
       robotsIndex: data.robotsIndex ?? true,
       ogImageId: data.ogImageId || null,

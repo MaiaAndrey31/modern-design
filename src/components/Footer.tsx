@@ -4,7 +4,7 @@ import { useRef } from "react";
 import Image from "next/image";
 import { useGSAP } from "@gsap/react";
 import { gsap } from "@/lib/gsap";
-import type { SiteDto, SocialLinkDto } from "@/lib/content/dto";
+import type { SiteDto, SocialLinkDto } from "@/lib/content/legacyDto";
 import { scrollToSection } from "@/lib/lenisStore";
 import { track } from "@/lib/analytics";
 import { useLocale } from "@/i18n/LocaleProvider";

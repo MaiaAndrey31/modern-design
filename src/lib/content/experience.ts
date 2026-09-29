@@ -2,36 +2,29 @@ import "server-only";
 import { cache } from "react";
 import { unstable_cache } from "next/cache";
 import { prisma } from "@/lib/db";
+import { localized } from "@/lib/i18n/locale";
 import { CACHE_TAGS } from "./tags";
-import type { ExperienceDto, FrameDto } from "./dto";
+import { toMediaRef } from "./mappers";
+import type { ExperienceFrameDto } from "./dto";
 
 const query = unstable_cache(
-  async (): Promise<ExperienceDto> => {
-    const [section, frameRows] = await Promise.all([
-      prisma.experienceSection.findUnique({ where: { id: "singleton" } }),
-      prisma.experienceFrame.findMany({
-        where: { status: "PUBLISHED" },
-        orderBy: { slot: "asc" },
-        include: { media: true },
-      }),
-    ]);
-
-    const frames: FrameDto[] = frameRows.map((row) => ({
+  async (): Promise<ExperienceFrameDto[]> => {
+    const rows = await prisma.experienceFrame.findMany({
+      where: { status: "PUBLISHED" },
+      orderBy: { slot: "asc" },
+      include: { media: true },
+    });
+    return rows.map((row) => ({
       slot: row.slot,
       layout: row.layout,
       offsetPx: row.offsetPx,
-      mediaUrl: row.media?.url ?? null,
-      alt: row.alt,
+      media: toMediaRef(row.media),
+      alt: localized(row.altPt, row.altEn),
     }));
-
-    return {
-      eyebrow: section?.eyebrow ?? "The Experience",
-      heading: section?.heading ?? "Lights, crowd, energy.",
-      frames,
-    };
   },
   ["content", "experience"],
-  { tags: [CACHE_TAGS.experience, CACHE_TAGS.all], revalidate: 3600 }
+  { tags: [CACHE_TAGS.experience, CACHE_TAGS.media, CACHE_TAGS.all], revalidate: 3600 }
 );
 
-export const getExperience = cache(query);
+/** Published frames of the fixed 4-slot grid. Heading comes from Section("experience"). */
+export const getExperienceFrames = cache(query);

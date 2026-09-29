@@ -3,7 +3,7 @@
 import { useEffect, useRef, type RefObject } from "react";
 import { useGSAP } from "@gsap/react";
 import { gsap, ScrollTrigger, requestScrollRefresh } from "@/lib/gsap";
-import type { GalleryDto } from "@/lib/content/dto";
+import type { GalleryDto } from "@/lib/content/legacyDto";
 import type { SpiralHandle, SpiralSource } from "@/components/three/spiralScene";
 import { useLocale } from "@/i18n/LocaleProvider";
 

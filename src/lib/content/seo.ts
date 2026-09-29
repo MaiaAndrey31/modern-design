@@ -2,34 +2,37 @@ import "server-only";
 import { cache } from "react";
 import { unstable_cache } from "next/cache";
 import { prisma } from "@/lib/db";
+import { localizedOptional, mapLocalized } from "@/lib/i18n/locale";
 import { CACHE_TAGS } from "./tags";
-import { getSiteSettings } from "./site";
+import { SINGLETON_ID } from "./singleton";
+import { toMediaRef } from "./mappers";
+import { getBrand } from "./brand";
 import type { SeoDto } from "./dto";
 
 const query = unstable_cache(
   async () => {
-    const row = await prisma.seoSettings.findUnique({ where: { id: "singleton" }, include: { ogImage: true } });
+    const row = await prisma.seoSettings.findUnique({ where: { id: SINGLETON_ID }, include: { ogImage: true } });
     return {
-      metaTitle: row?.metaTitle ?? null,
-      metaDescription: row?.metaDescription ?? null,
-      ogImageUrl: row?.ogImage?.url ?? null,
+      metaTitle: row ? localizedOptional(row.metaTitlePt, row.metaTitleEn) : null,
+      metaDescription: row ? localizedOptional(row.metaDescriptionPt, row.metaDescriptionEn) : null,
+      ogImage: toMediaRef(row?.ogImage),
       twitterHandle: row?.twitterHandle ?? null,
       robotsIndex: row?.robotsIndex ?? true,
     };
   },
   ["content", "seo"],
-  { tags: [CACHE_TAGS.seo, CACHE_TAGS.all], revalidate: 3600 }
+  { tags: [CACHE_TAGS.seo, CACHE_TAGS.media, CACHE_TAGS.all], revalidate: 3600 }
 );
 
 const cachedQuery = cache(query);
 
-/** `metaTitle`/`metaDescription` fall back to SiteSettings when unset, so SEO is never blank even before an admin visits the SEO screen. */
-export async function getSeoSettings(): Promise<SeoDto> {
-  const [seo, site] = await Promise.all([cachedQuery(), getSiteSettings()]);
+/** Title/description always resolve (SeoSettings → brand), so metadata is never blank. */
+export async function getSeo(): Promise<SeoDto> {
+  const [seo, brand] = await Promise.all([cachedQuery(), getBrand()]);
   return {
-    metaTitle: seo.metaTitle ?? `${site.artistName} — The Experience`,
-    metaDescription: seo.metaDescription ?? site.bioShort,
-    ogImageUrl: seo.ogImageUrl,
+    metaTitle: seo.metaTitle ?? mapLocalized(brand.tagline, (tagline) => `${brand.brandName} — ${tagline}`),
+    metaDescription: seo.metaDescription ?? brand.description,
+    ogImage: seo.ogImage,
     twitterHandle: seo.twitterHandle,
     robotsIndex: seo.robotsIndex,
   };

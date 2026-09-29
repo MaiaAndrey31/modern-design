@@ -10,8 +10,8 @@ export default async function GalleryAdminPage() {
   const items = rows.map((row) => ({
     id: row.id,
     url: row.media.url,
-    alt: row.alt,
-    caption: row.caption,
+    alt: row.altPt, // TEMPORARY (Phase 3 → 4): PT fields
+    caption: row.captionPt,
     status: row.status,
   }));
 

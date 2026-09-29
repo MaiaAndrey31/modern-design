@@ -1,5 +1,8 @@
-export type Locale = "en" | "pt";
+import type { Locale } from "@/lib/i18n/locale";
 
+export type { Locale };
+
+/** Display order of the language switch (EN / PT). The canonical list is LOCALES in src/lib/i18n/locale.ts. */
 export const LOCALES: Locale[] = ["en", "pt"];
 
 /**

@@ -5,7 +5,8 @@ import { updateTimelineEventAction } from "@/app/(admin)/admin/_actions/career";
 
 export default async function EditTimelineEventPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const item = await prisma.timelineEvent.findUnique({ where: { id }, include: { image: true } });
+  // TEMPORARY (Phase 3 → 4): timeline = StoryChapter (PT fields).
+  const item = await prisma.storyChapter.findUnique({ where: { id }, include: { image: true } });
   if (!item) notFound();
 
   return (
@@ -14,10 +15,10 @@ export default async function EditTimelineEventPage({ params }: { params: Promis
       <div className="mt-6">
         <TimelineEventForm
           initialValues={{
-            yearLabel: item.yearLabel,
-            title: item.title,
-            subtitle: item.subtitle ?? "",
-            description: item.description,
+            yearLabel: item.periodLabelPt,
+            title: item.titlePt,
+            subtitle: item.conceptPt,
+            description: item.textPt,
             published: item.status === "PUBLISHED",
             image: item.image ? { id: item.image.id, url: item.image.url } : null,
           }}

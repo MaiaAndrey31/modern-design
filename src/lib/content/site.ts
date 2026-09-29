@@ -2,44 +2,34 @@ import "server-only";
 import { cache } from "react";
 import { unstable_cache } from "next/cache";
 import { prisma } from "@/lib/db";
+import { isLocale } from "@/lib/i18n/locale";
+import { getEnvSiteUrl, normalizeSiteUrl } from "@/lib/siteUrl";
 import { CACHE_TAGS } from "./tags";
-import type { SiteDto } from "./dto";
-
-const FALLBACK: SiteDto = {
-  artistName: "Alan Saher",
-  roles: ["DJ", "Producer", "Entertainer"],
-  startYear: 1993,
-  tagline: "30+ Years. One Sound. Thousands of Stories.",
-  originStatement: "From Minas to the World.",
-  signaturePhrase: "Pegada Monstra",
-  bioShort:
-    "For more than three decades, Alan Saher has taken his sound from the nightclubs of the Sul de Minas to some of the world's biggest stages.",
-  bioFull:
-    "Alan Saher began his career in 1993. In 1998, he was recognized in a competition promoted by Rádio Atenas FM, which highlighted him as a leading DJ in the Sul de Minas region.",
-  whatsappNumber: null,
-  footerNote: "Built as a digital experience — not a template.",
-};
+import { SINGLETON_ID } from "./singleton";
+import { SYSTEM_DEFAULTS } from "./defaults";
+import type { SiteConfigDto } from "./dto";
 
 const query = unstable_cache(
-  async (): Promise<SiteDto> => {
-    const row = await prisma.siteSettings.findUnique({ where: { id: "singleton" } });
-    if (!row) return FALLBACK;
+  async (): Promise<SiteConfigDto> => {
+    const row = await prisma.siteSettings.findUnique({ where: { id: SINGLETON_ID } });
+    if (!row) return { ...SYSTEM_DEFAULTS.site };
     return {
-      artistName: row.artistName,
-      roles: row.roles,
-      startYear: row.startYear,
-      tagline: row.tagline,
-      originStatement: row.originStatement,
-      signaturePhrase: row.signaturePhrase,
-      bioShort: row.bioShort,
-      bioFull: row.bioFull,
+      siteUrl: row.siteUrl,
+      defaultLocale: isLocale(row.defaultLocale) ? row.defaultLocale : SYSTEM_DEFAULTS.site.defaultLocale,
+      contactEmail: row.contactEmail,
+      contactPhone: row.contactPhone,
       whatsappNumber: row.whatsappNumber,
-      footerNote: row.footerNote,
     };
   },
   ["content", "site"],
   { tags: [CACHE_TAGS.site, CACHE_TAGS.all], revalidate: 3600 }
 );
 
-/** Falls back to sensible defaults if SiteSettings hasn't been seeded yet — the site must never break on this. */
-export const getSiteSettings = cache(query);
+/** Technical site configuration. Falls back to SYSTEM_DEFAULTS before the seed runs — the site never breaks on it. */
+export const getSiteConfig = cache(query);
+
+/** Full resolution chain: SiteSettings.siteUrl → env (see src/lib/siteUrl.ts). */
+export async function getSiteUrl(): Promise<string> {
+  const config = await getSiteConfig();
+  return normalizeSiteUrl(config.siteUrl) ?? getEnvSiteUrl();
+}

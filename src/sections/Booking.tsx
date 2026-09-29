@@ -6,7 +6,7 @@ import { useRef, useState } from "react";
 import { useGSAP } from "@gsap/react";
 import { gsap } from "@/lib/gsap";
 import { bookingSchema, type BookingSchema } from "@/lib/validations/booking";
-import type { BookingSettingsDto } from "@/lib/content/dto";
+import type { BookingSettingsDto } from "@/lib/content/legacyDto";
 import { MagneticButton } from "@/components/MagneticButton";
 import { track } from "@/lib/analytics";
 import { useLocale } from "@/i18n/LocaleProvider";

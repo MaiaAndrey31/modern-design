@@ -23,7 +23,7 @@ export async function addGalleryItem(mediaId: string, alt: string) {
   const item = await prisma.galleryItem.create({
     data: {
       mediaId,
-      alt,
+      altPt: alt, // TEMPORARY (Phase 3 → 4): legacy single-language field → PT
       orientation: orientationFromDimensions(media.width ?? 1200, media.height ?? 1200),
       sortOrder: (maxOrder._max.sortOrder ?? 0) + 1,
       status: "PUBLISHED",
@@ -37,7 +37,11 @@ export async function addGalleryItem(mediaId: string, alt: string) {
 
 export async function updateGalleryItem(id: string, data: { alt?: string; caption?: string; status?: "DRAFT" | "PUBLISHED" }) {
   await requireRole(["ADMIN", "EDITOR"]);
-  await prisma.galleryItem.update({ where: { id }, data });
+  // TEMPORARY (Phase 3 → 4): legacy single-language fields → PT.
+  await prisma.galleryItem.update({
+    where: { id },
+    data: { altPt: data.alt, captionPt: data.caption === undefined ? undefined : data.caption || null, status: data.status },
+  });
   updateTag(CACHE_TAGS.gallery);
   revalidatePath("/");
 }

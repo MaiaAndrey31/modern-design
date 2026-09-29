@@ -4,7 +4,7 @@ import Image from "next/image";
 import { useRef } from "react";
 import { useGSAP } from "@gsap/react";
 import { gsap } from "@/lib/gsap";
-import type { FrameDto } from "@/lib/content/dto";
+import type { FrameDto } from "@/lib/content/legacyDto";
 import { useMotionProfile } from "@/hooks/useMotionProfile";
 import { useLocale } from "@/i18n/LocaleProvider";
 

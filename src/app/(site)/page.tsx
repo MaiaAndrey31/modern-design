@@ -15,42 +15,51 @@ import { PressKit } from "@/sections/PressKit";
 import { UpcomingShows } from "@/sections/UpcomingShows";
 import { Booking } from "@/sections/Booking";
 import { getPersonJsonLd, getEventsJsonLd } from "@/lib/structuredData";
-import { getSiteSettings } from "@/lib/content/site";
-import { getHero } from "@/lib/content/hero";
-import { getStatement } from "@/lib/content/statement";
-import { getStory } from "@/lib/content/story";
-import { getWorldStages } from "@/lib/content/worldStages";
-import { getNarrative } from "@/lib/content/narrative";
-import { getExperience } from "@/lib/content/experience";
-import { getReleases } from "@/lib/content/releases";
-import { getGallery } from "@/lib/content/gallery";
-import { getPress, getPressKit } from "@/lib/content/press";
-import { getUpcomingShows } from "@/lib/content/shows";
-import { getSocialLinks } from "@/lib/content/social";
-import { getBookingSettings } from "@/lib/content/booking";
+import type { SectionKey } from "@/lib/sections/registry";
+import { getSections } from "@/lib/content/sections";
+// TEMPORARY (Phase 3 → 5): pre-Modern prop shapes built from the new loaders.
+import {
+  getLegacySite,
+  getLegacyHero,
+  getLegacyStatement,
+  getLegacyStory,
+  getLegacyStages,
+  getLegacyNarrative,
+  getLegacyExperience,
+  getLegacyReleases,
+  getLegacyGallery,
+  getLegacyPress,
+  getLegacyPressKit,
+  getLegacyShows,
+  getLegacySocialLinks,
+  getLegacyBooking,
+} from "@/lib/content/legacy";
 
 // Content changes go through the admin's revalidateTag/revalidatePath calls;
 // this is a time-based backstop, not the primary invalidation mechanism.
 export const revalidate = 3600;
 
 export default async function Home() {
-  const [site, hero, statement, story, stages, narrative, experience, releases, gallery, press, pressKit, shows, social, booking] =
+  const [sections, site, hero, statement, story, stages, narrative, experience, releases, gallery, press, pressKit, shows, social, booking] =
     await Promise.all([
-      getSiteSettings(),
-      getHero(),
-      getStatement(),
-      getStory(),
-      getWorldStages(),
-      getNarrative(),
-      getExperience(),
-      getReleases(),
-      getGallery(),
-      getPress(),
-      getPressKit(),
-      getUpcomingShows(),
-      getSocialLinks(),
-      getBookingSettings(),
+      getSections(),
+      getLegacySite(),
+      getLegacyHero(),
+      getLegacyStatement(),
+      getLegacyStory(),
+      getLegacyStages(),
+      getLegacyNarrative(),
+      getLegacyExperience(),
+      getLegacyReleases(),
+      getLegacyGallery(),
+      getLegacyPress(),
+      getLegacyPressKit(),
+      getLegacyShows(),
+      getLegacySocialLinks(),
+      getLegacyBooking(),
     ]);
+  // Visibility from the CMS; order stays fixed until the registry-driven renderer lands (Phase 5).
+  const on = (key: SectionKey) => sections.byKey[key].enabled;
 
   const personJsonLd = getPersonJsonLd(site, social);
   const eventsJsonLd = getEventsJsonLd(site, shows);
@@ -59,11 +68,11 @@ export default async function Home() {
   // Story/Gallery renders null, so a static nav item would otherwise be a
   // dead scroll target.
   const navItems: NavItem[] = [
-    story.milestones.length > 0 && { label: "Story", id: "story" },
-    { label: "Music", id: "music" },
-    { label: "Shows", id: "shows" },
-    gallery.length > 0 && { label: "Gallery", id: "gallery" },
-    { label: "Booking", id: "booking" },
+    on("story") && story.milestones.length > 0 && { label: "Story", id: "story" },
+    on("music") && { label: "Music", id: "music" },
+    on("shows") && { label: "Shows", id: "shows" },
+    on("gallery") && gallery.length > 0 && { label: "Gallery", id: "gallery" },
+    on("booking") && { label: "Booking", id: "booking" },
   ].filter((item): item is NavItem => Boolean(item));
 
   return (
@@ -77,19 +86,22 @@ export default async function Home() {
       <Header artistName={site.artistName} navItems={navItems} />
       <main id="main-content">
         <Hero hero={hero} site={site} />
-        <Numbers startYear={site.startYear} stageYears={stages.filter((s) => s.showInNumbers).map((s) => ({ id: s.id, year: s.year }))} />
-        {/* Thesis ("From Minas to the World") → proof (Story) → manifesto → showcase. */}
-        <Statement lines={statement.lines} accentIndex={statement.accentIndex} backgroundUrl={statement.backgroundUrl} />
-        <Story content={story.content} milestones={story.milestones} />
-        <NarrativeTransition {...narrative} />
-        <WorldStages stages={stages} />
-        <Experience {...experience} />
-        <Music releases={releases} socialLinks={social} artistName={site.artistName} startYear={site.startYear} />
-        <Gallery items={gallery} />
-        <Press items={press} />
-        <PressKit pressKit={pressKit} />
-        <UpcomingShows shows={shows} />
-        <Booking settings={booking} />
+        {on("numbers") && (
+          <Numbers startYear={site.startYear} stageYears={stages.filter((s) => s.showInNumbers).map((s) => ({ id: s.id, year: s.year }))} />
+        )}
+        {on("statement") && statement.lines.length > 0 && (
+          <Statement lines={statement.lines} accentIndex={statement.accentIndex} backgroundUrl={statement.backgroundUrl} />
+        )}
+        {on("story") && <Story content={story.content} milestones={story.milestones} />}
+        {on("narrative") && <NarrativeTransition {...narrative} />}
+        {on("worldStages") && <WorldStages stages={stages} />}
+        {on("experience") && <Experience {...experience} />}
+        {on("music") && <Music releases={releases} socialLinks={social} artistName={site.artistName} startYear={site.startYear} />}
+        {on("gallery") && <Gallery items={gallery} />}
+        {on("press") && <Press items={press} />}
+        {on("pressKit") && <PressKit pressKit={pressKit} />}
+        {on("shows") && <UpcomingShows shows={shows} />}
+        {on("booking") && <Booking settings={booking} />}
       </main>
       <Footer site={site} socialLinks={social} />
     </>

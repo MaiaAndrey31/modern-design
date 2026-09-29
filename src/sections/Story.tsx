@@ -4,7 +4,7 @@ import Image from "next/image";
 import { useMemo, useRef } from "react";
 import { useGSAP } from "@gsap/react";
 import { gsap, ScrollTrigger, requestScrollRefresh } from "@/lib/gsap";
-import type { MilestoneDto } from "@/lib/content/dto";
+import type { MilestoneDto } from "@/lib/content/legacyDto";
 import { useMotionProfile } from "@/hooks/useMotionProfile";
 import { useLocale } from "@/i18n/LocaleProvider";
 import type { Locale } from "@/i18n/dictionary";

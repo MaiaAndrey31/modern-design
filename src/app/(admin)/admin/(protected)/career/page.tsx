@@ -16,7 +16,8 @@ export default async function CareerPage({ searchParams }: { searchParams: Promi
   const isStages = tab === "stages";
 
   const [timeline, stages] = await Promise.all([
-    prisma.timelineEvent.findMany({ orderBy: { sortOrder: "asc" }, include: { image: true } }),
+    // TEMPORARY (Phase 3 → 4): timeline = StoryChapter (PT fields) until the Story editor lands.
+    prisma.storyChapter.findMany({ orderBy: { sortOrder: "asc" }, include: { image: true } }),
     prisma.worldStage.findMany({ orderBy: { sortOrder: "asc" }, include: { image: true } }),
   ]);
 
@@ -59,7 +60,7 @@ export default async function CareerPage({ searchParams }: { searchParams: Promi
                 )}
                 <div className="flex-1">
                   <p className="text-sm font-medium">
-                    {item.yearLabel} · {item.title}
+                    {item.periodLabelPt} · {item.titlePt}
                   </p>
                   <div className="mt-1">
                     <StatusBadge status={item.status} />
@@ -68,7 +69,7 @@ export default async function CareerPage({ searchParams }: { searchParams: Promi
                 <Link href={`/admin/career/timeline/${item.id}/edit`} className="text-xs font-medium text-neutral-700">
                   Editar
                 </Link>
-                <DeleteButton action={deleteTimelineEventAction.bind(null, item.id)} confirmMessage={`Excluir "${item.title}"?`} />
+                <DeleteButton action={deleteTimelineEventAction.bind(null, item.id)} confirmMessage={`Excluir "${item.titlePt}"?`} />
               </li>
             ))}
           </ul>
@@ -90,7 +91,7 @@ export default async function CareerPage({ searchParams }: { searchParams: Promi
               )}
               <div className="flex-1">
                 <p className="text-sm font-medium">
-                  {stage.yearLabel} · {stage.title}
+                  {stage.yearLabel} · {stage.titlePt}
                 </p>
                 <div className="mt-1">
                   <StatusBadge status={stage.status} />
@@ -99,7 +100,7 @@ export default async function CareerPage({ searchParams }: { searchParams: Promi
               <Link href={`/admin/career/stages/${stage.id}/edit`} className="text-xs font-medium text-neutral-700">
                 Editar
               </Link>
-              <DeleteButton action={deleteWorldStageAction.bind(null, stage.id)} confirmMessage={`Excluir "${stage.title}"?`} />
+              <DeleteButton action={deleteWorldStageAction.bind(null, stage.id)} confirmMessage={`Excluir "${stage.titlePt}"?`} />
             </li>
           ))}
         </ul>

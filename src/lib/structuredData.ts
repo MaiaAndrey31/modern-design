@@ -1,4 +1,4 @@
-import type { SiteDto, SocialLinkDto, ShowDto } from "@/lib/content/dto";
+import type { SiteDto, SocialLinkDto, ShowDto } from "@/lib/content/legacyDto";
 
 import { siteUrl } from "@/lib/siteUrl";
 

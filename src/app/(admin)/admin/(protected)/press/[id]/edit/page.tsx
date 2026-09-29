@@ -18,7 +18,7 @@ export default async function EditPressPage({ params }: { params: Promise<{ id: 
             title: item.title,
             dateLabel: item.dateLabel,
             url: item.url ?? "",
-            excerpt: item.excerpt ?? "",
+            excerpt: item.excerptPt ?? "", // TEMPORARY (Phase 3 → 4): PT field
             published: item.status === "PUBLISHED",
           }}
           action={updatePressItemAction.bind(null, id)}

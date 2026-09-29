@@ -10,6 +10,7 @@ export interface MediaListItem {
   kind: "IMAGE" | "VIDEO" | "DOCUMENT";
   alt: string | null;
   title: string | null;
+  /** Media.category (named `folder` in the legacy admin UI until Phase 7). */
   folder: string;
   width: number | null;
   height: number | null;
@@ -22,7 +23,7 @@ export async function listMedia(params: { folder?: string; search?: string; kind
 
   const rows = await prisma.media.findMany({
     where: {
-      ...(params.folder && params.folder !== "all" ? { folder: params.folder } : {}),
+      ...(params.folder && params.folder !== "all" ? { category: params.folder } : {}),
       ...(params.kind ? { kind: params.kind } : {}),
       ...(params.search
         ? { OR: [{ alt: { contains: params.search, mode: "insensitive" } }, { title: { contains: params.search, mode: "insensitive" } }] }
@@ -38,7 +39,7 @@ export async function listMedia(params: { folder?: string; search?: string; kind
     kind: row.kind,
     alt: row.alt,
     title: row.title,
-    folder: row.folder,
+    folder: row.category,
     width: row.width,
     height: row.height,
     sizeBytes: row.sizeBytes,

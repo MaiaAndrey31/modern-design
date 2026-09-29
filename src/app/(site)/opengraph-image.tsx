@@ -1,5 +1,5 @@
 import { ImageResponse } from "next/og";
-import { getSiteSettings } from "@/lib/content/site";
+import { getLegacySite as getSiteSettings } from "@/lib/content/legacy"; // TEMPORARY (Phase 3 → 5)
 
 export const alt = "Alan Saher — The Experience";
 export const size = { width: 1200, height: 630 };

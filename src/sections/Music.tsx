@@ -4,7 +4,7 @@ import Image from "next/image";
 import { useRef } from "react";
 import { useGSAP } from "@gsap/react";
 import { gsap, ScrollTrigger } from "@/lib/gsap";
-import type { ReleaseDto, SocialLinkDto } from "@/lib/content/dto";
+import type { ReleaseDto, SocialLinkDto } from "@/lib/content/legacyDto";
 import { Reveal } from "@/components/Reveal";
 import { Vinyl } from "@/components/Vinyl";
 import { track } from "@/lib/analytics";

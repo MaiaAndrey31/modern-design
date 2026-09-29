@@ -62,7 +62,7 @@ export async function registerUploadedMedia(input: unknown): Promise<ActionResul
       height,
       durationSec: durationSec ?? null,
       alt: alt ?? null,
-      folder,
+      category: folder, // logical category; the storage path prefix was fixed at upload
       uploadedById: user.id,
     },
   });
@@ -81,7 +81,7 @@ export async function updateMediaMeta(id: string, input: unknown): Promise<{ ok:
   const exists = await prisma.media.findUnique({ where: { id }, select: { id: true } });
   if (!exists) return { ok: false, error: "Arquivo não encontrado." };
 
-  await prisma.media.update({ where: { id }, data: { alt: alt || null, title: title || null, folder } });
+  await prisma.media.update({ where: { id }, data: { alt: alt || null, title: title || null, category: folder } });
   // alt text is rendered on the public site wherever this image is used.
   updateTag(CACHE_TAGS.media);
   updateTag(CACHE_TAGS.all);

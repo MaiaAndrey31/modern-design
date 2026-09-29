@@ -1,6 +1,6 @@
 "use client";
 
-import type { PressDto } from "@/lib/content/dto";
+import type { PressDto } from "@/lib/content/legacyDto";
 import { Reveal } from "@/components/Reveal";
 import { track } from "@/lib/analytics";
 import { useLocale } from "@/i18n/LocaleProvider";

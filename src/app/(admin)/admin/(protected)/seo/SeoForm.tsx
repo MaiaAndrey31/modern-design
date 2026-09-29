@@ -73,7 +73,7 @@ export function SeoForm({ initialValues }: { initialValues: SeoFormValues }) {
           {state.fieldErrors?.metaDescription?.[0] && <p className="mt-1 text-xs text-red-600">{state.fieldErrors.metaDescription[0]}</p>}
         </div>
 
-        <MediaPickerField label="Imagem de compartilhamento (opcional)" folder="general" aspect="aspect-video" value={ogImage} onChange={setOgImage} />
+        <MediaPickerField label="Imagem de compartilhamento (opcional)" folder="seo" aspect="aspect-video" value={ogImage} onChange={setOgImage} />
         <input type="hidden" name="ogImageId" value={ogImage?.id ?? ""} />
         <p className="text-xs text-neutral-500">Se não definida, uma imagem é gerada automaticamente a partir da Identidade.</p>
 

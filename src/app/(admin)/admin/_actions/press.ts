@@ -31,7 +31,7 @@ async function upsertPressItem(id: string | null, formData: FormData): Promise<A
     title: data.title,
     dateLabel: data.dateLabel,
     url: data.url || null,
-    excerpt: data.excerpt || null,
+    excerptPt: data.excerpt || null, // TEMPORARY (Phase 3 → 4): PT field
     logoId: data.logoId || null,
     status: (data.published ? "PUBLISHED" : "DRAFT") as "PUBLISHED" | "DRAFT",
   };
